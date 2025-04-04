@@ -1,0 +1,243 @@
+.menu{
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center; /* Alinea verticalmente */
+    justify-content: center; /* Alinea horizontalmente */
+    width: 80%;
+    height: 100%;
+
+}
+* {
+    font-family: "ArialRoundedMtBold", serif;
+    color: #333; /* Color de texto */
+}
+.atras{
+    position: absolute;
+    top: 2.5%;
+    left: 1.5%;
+    color: #e0edd1;
+    background-color: #829d6a;
+    border-radius: 50px;
+    border: solid;
+    border-width: 4px;
+    border-color: #dfe8c5 ;
+    padding: .5%;
+    box-shadow:     0px 0px 0px 10px #829d6a;
+}
+.botonSiguiente{
+    display: flex;
+    justify-content: center;
+    font-style: normal;
+    font-size: 4vw;
+    margin-left: 25%;
+    margin-top: 5%;
+    margin-bottom: 5%;
+    width: 50%;
+    color: #e0edd1;
+    background-color: #829d6a;
+    border-radius: 50px;
+    border: solid;
+    border-width: 4px;
+    border-color: #dfe8c5 ;
+    padding: 2.5%;
+    box-shadow:     0px 0px 0px 10px #829d6a;
+
+}
+.dificultadJuego{
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+.botonesDificultad{
+    margin-top: 2.5%;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 80%;
+    gap: 5%;
+    border: none;
+    outline: none;
+}
+.botonDificultad{
+    flex-grow: 1;
+    border-radius: 50px;
+    font-style: normal;
+    font-size: 7vw;
+
+}
+#dificultadFacil{
+    background-color: #f4e1a1;
+    color: black;
+}
+#dificultadMedia{
+    background-color: #f0a55d   ;
+    color: black;
+}
+#dificultadDificil{
+    background-color:#e66e43;
+    color: black;
+}
+.resaltado {
+    margin: -10px;
+    border: 10px solid #038533
+
+    ;
+}
+.modoJuego{
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+.botonesModo{
+    margin-top: 2.5%;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 80%;
+    gap: 15%;
+    border: none;
+    outline: none;
+}
+.botonModo{
+    flex-grow: 1;
+    border-radius: 50px;
+    font-style: normal;
+    font-size: 7vw;
+
+}
+#modoIndividual{
+    background-color: #6eb7ff   ;
+    color: black;
+}
+#modoEquipos{
+    background-color: #0080ff   ;
+    color: black;
+}
+.cantidadJugadores{
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+#selectCantTag{
+    display: inline-block;
+    margin-top: 2.5%;
+    text-align: center; 
+    justify-content: center;
+    font-weight: 500;
+    font-size: 2.5vw;
+    background-color: rgb(213, 190, 87);
+    border-radius: 10px;
+    padding-top: 1%;
+    padding-bottom: 1%;
+}  
+.botonesCantidad{
+    flex-grow: 1;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); /* 4 columnas */
+    grid-template-rows: repeat(2, 1fr); /* 2 filas */
+    gap: 10px;
+    width: 100%;
+    max-width: 100%;
+    margin: auto;
+    min-width: 0;
+    place-items: center;
+    height:50%;
+    max-height: 80%;
+
+}
+.botonCantidad{
+    color: #333; 
+    font-style: normal;
+    background-color: rgb(252, 230, 131);
+    padding: 10px;
+    text-align: center;
+    border-radius: 50px;
+    height: 100%;
+    width: 100%;
+}
+.botonCantidad .numero {
+    font-size: 8vw;
+  }
+.botonCantidad.resaltado{
+    margin: 2.5px;
+}
+.jugadores{
+    margin-top: 5%;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+.jugadoresInput{
+    align-items: center; /* Alinea verticalmente */
+    justify-content: center; /* Alinea horizontalmente */
+    flex-grow: 1;
+    display: grid;
+    gap: 5%;
+    justify-items: center;
+    grid-template-columns: 1fr 1fr; /* Dos columnas de igual tamaño */
+    place-items: center;
+
+}
+.jugador {
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+    justify-content: center; /* Centra el contenido verticalmente */
+    align-items: center; /* Centra el contenido horizontalmente */
+    background-color:rgb(252, 230, 131);
+    width: 100%;
+    height: 100%;
+    border-radius: 25px;
+}
+
+.jugador input {
+    margin-top: 2.5%;
+    width: 80%; /* Asegura que el input ocupe todo el ancho disponible */
+    background-color:rgb(254, 244, 195);
+    border: solid;
+    border-color: rgb(117, 110, 78);
+}
+
+.jugadoresInput > .jugador:nth-child(n+5) {
+    /* A partir del quinto elemento (es decir, el 5º, 6º, etc.), distribuir en dos columnas */
+    grid-column: span 1;
+}
+.jugadoresInput > .jugador:nth-child(odd) {
+    grid-column: 1; /* Los elementos impares irán a la primera columna */
+}
+.jugadoresInput > .jugador:nth-child(even) {
+    grid-column: 2; /* Los elementos pares irán a la segunda columna */
+}
+.buttonAPartida{
+    display: flex;
+    justify-content: center;
+    font-style: normal;
+    font-size: 5vw;
+    color: #d8e2ba;
+    margin-left: 25%;
+    margin-top: 2.5%;
+    margin-bottom: 5%;
+    width: 50%;
+    color: #e0edd1;
+    background-color: #829d6a;
+    border-radius: 50px;
+    border: solid;
+    border-width: 4px;
+    border-color: #dfe8c5 ;
+    padding: 2.5%;
+    box-shadow:     0px 0px 0px 10px #829d6a;
+
+    
+}
+
+button:hover {
+    transform: scale(1.05); /* Agranda el botón ligeramente cuando se pasa el mouse */
+}
+

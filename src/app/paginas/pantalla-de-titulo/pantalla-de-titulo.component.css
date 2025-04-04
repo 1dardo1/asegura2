@@ -1,0 +1,10 @@
+:host {
+    margin: -8px;
+    display: block;
+    background-color: aqua;
+    height: 100vh; /* Toda la altura de la pantalla */
+    background-image: url("/assets/images/fondoTitulo.jpg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }

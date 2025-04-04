@@ -1,0 +1,16 @@
+:host {
+  display: flex;
+  height: 100vh; /* Toda la altura de la pantalla */
+  width: 100vw; /* Toda la anchura de la pantalla */
+  overflow: hidden; /* Evita que aparezca el scroll */
+  background-image: url("/assets/images/fondoTitulo.jpg");
+  margin: -8px;
+}
+app-menu{
+  display : flex;
+  flex-grow: 1;  
+  flex-direction: column; /* Acomoda los componentes en columna */
+  align-items: center; /* Alinea verticalmente */
+}
+
+  

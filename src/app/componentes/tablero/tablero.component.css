@@ -1,0 +1,375 @@
+.contenedor {
+    background-color: rgb(204, 227, 169);
+    display: flex;
+    width: calc(100% -20px);
+    height: calc(100vh);  /* Asegura que el contenedor ocupe toda la altura de la vista */
+    gap: 10px;
+    margin: -8px;
+  }
+  .jugadores{
+    margin: 1%;
+      flex-basis: 15%;  /* La lista ocupa el 15% del ancho */
+      display: flex;
+      flex-direction: column;
+      gap: 1%;
+  }
+  .jugador{
+      box-shadow: 4px 4px 2px;
+      border-radius:  15px; 
+      flex-grow: 1;
+      display: flex;
+      flex-direction: row;
+  }
+  .nombre,.dinero,.sueldo,.alquiler{
+      flex-grow: 1;
+      border-radius: 8px;
+      color: rgb(255, 255, 255);
+      align-content: center;
+  }
+  .informacion{
+      flex-grow: 1;
+      margin-top: 5%;
+      margin-left: 5%;
+      margin-bottom: 5%;
+      margin-right: 2.5%;
+      display: flex;
+      flex-direction: column;
+  }
+  .nombre{
+      margin-bottom: 5%;
+      text-align: center;
+      background-color: rgba(255, 255, 255, 0.40);
+  }
+  .dinero{
+      margin-top: 5%;
+      text-align: center;
+      background-color: rgba(255, 255, 255, 0.20);
+  }
+  .sueldo-alquiler{
+      flex-grow: 1;
+      margin-top: 5%;
+      margin-left: 2.5%;
+      margin-bottom: 5%;
+      margin-right: 5%;
+      display: flex;
+      flex-direction: column;
+  }
+  .sueldo{
+      margin-bottom: 5%;
+      text-align: center;
+      background-color: #4ce451;
+  }
+  .alquiler{
+      margin-top: 5%;
+      text-align: center;
+      background-color: #e83838;
+  }
+  .grid-container{
+      box-shadow: 10px 10px 4px rgb(124, 159, 99);
+  
+      background-color: rgb(161, 206, 129);
+      padding: 2.5%;
+      flex-grow: 1;  /* El grid ocupará el espacio restante */
+      display: grid;
+      grid-template-columns: repeat(8,11.5%); 
+      grid-template-rows:   repeat(5,19%);
+      row-gap: 1%;
+      column-gap:1%;
+      margin: 2.5%;
+      border-radius: 25px;
+      box-sizing: border-box;
+  
+  }
+  .casilla{
+      flex-grow: 1;
+      background-color: #d4d1d1; /* Azul dessaturado */
+      border-radius:  20px; 
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-sizing: border-box;
+  
+  }
+  .casilla-interior{
+      height: 85%;
+      width: 85%;
+      border-radius:  15px; 
+      background-color: #d4d1d1;
+      position: center;
+      border: 2px solid rgb(143, 135, 135);
+      display: flex;
+      align-items: center;
+      justify-items: center;
+      flex-direction: column;
+  }
+  .casilla-interior-sueldo{
+      height: 85%;
+      width: 85%;
+      border-radius:  15px; 
+      background-color: #4ce451;
+      position: center;
+      border: 2px solid rgb(0, 0, 0);
+      display: flex;
+      align-items: center;
+      justify-items: center;
+      flex-direction: column;
+  }
+  .casilla-interior-alquiler{
+      height: 85%;
+      width: 85%;
+      border-radius:  15px; 
+      background-color: #e83838;
+      position: center;
+      border: 2px solid rgb(0, 0, 0);
+      display: flex;
+      align-items: center;
+      justify-items: center;
+      flex-direction: column;
+      position: relative;
+  }
+  .imagen-casilla {
+      margin-top: 5%;
+      flex-grow: 1;
+      max-width: 100%; 
+      max-height: 50%; 
+  }
+  .imagen-casilla-interrogacion{
+      margin-top: 5%;
+      flex-grow: 1;
+      max-width: 100%; 
+      max-height: 90%;
+  }
+  #inicio{
+      margin-top: 10%;
+      padding: 6%;
+      border-radius: 15px;
+      text-align: center;
+      background-color: rgba(255, 255, 255, 0.5);
+      font-size: 1vw;
+  
+  }
+  .imagen-casilla-sueldo{
+      margin-top: 5%;
+      flex-grow: 1;
+      max-width: 80%; 
+      max-height: 30%;
+  }
+  .imagen-casilla-alquiler{
+      position: absolute;
+      top: 0;
+      left: 0;
+      flex-grow: 1;
+      max-width: 100%; 
+      max-height: 100%;
+  }
+  #alquiler{
+      position: absolute;
+      top: 0;
+      left: 10%;
+      margin-top: 10%;
+      padding: 6%;
+      border-radius: 15px;
+      text-align: center;
+      background-color: rgba(255, 255, 255, 0.5);
+      font-size: 1vw;
+  }
+  .precio {
+      font-size: 1vw;
+      width: 80%;  
+      text-align: center; 
+      color: rgb(28, 2, 2);
+      background-color: rgba(255, 255, 255, 0.5);
+      border-radius: 8px;
+  }
+  .casilla-central{
+      background-color: rgb(161, 206, 129);
+      grid-column: 2 / -2; /* Desde la segunda columna hasta la penúltima */
+      grid-row: 2 / -2;
+      
+  }
+  .casilla-interior-central {
+      height: 90%;
+      width: 90%;
+      border-radius: 15px;
+      background-color: #d4d1d1;
+      position: relative; 
+      display: flex;
+      flex-direction: row;
+  }
+  .cards-dice{
+      display: flex;
+      flex-direction: column;
+      flex-basis: 20%;
+      max-width: 20%;
+      gap: 5%;
+      margin: 5%;
+  }
+  .card-stack{
+  
+      flex-basis: 70%;
+      max-height: 70%;
+      background-color: #C8A17D;
+      border: 5px solid #8B5E3C;
+      border-radius: 10px;
+      display: flex;
+  }
+  .card-stack-image{
+      object-fit: contain; /* Mantiene la proporción original */
+  
+      margin: 20%;
+      flex-grow: 1;
+      max-width: 60%;
+      max-height: 100%;
+  }
+  .dice{
+      flex-grow: 1;
+      display: flex;
+  }
+  .dice-image{
+      object-fit: contain; /* Mantiene la proporción original */
+  
+      flex-grow: 1;
+      max-width: 100%;
+      max-height: 70%;
+  }
+  .jugador-foco{
+      flex-grow: 1;
+  
+  }
+  .jugador-1 {
+      box-shadow: 4px 4px 4px #00587d ;
+      background-color: #006A96;
+      grid-column: 1 / 2;
+      grid-row: 1 / 2;
+  }
+  .jugador-2 {
+      box-shadow: 4px 4px 4px #c36100 ;
+      background-color: #FF8201;
+      grid-column: 1 / 2;
+      grid-row: 2 / 3;
+  }
+  .jugador-3 {
+      box-shadow: 4px 4px 4px #9a698e ;
+      background-color: #D592C5;
+      grid-column: 1 / 2;
+      grid-row: 3 / 4;
+  }
+  .jugador-4 {
+      box-shadow: 4px 4px 2px #401d5c ;
+      background-color: #652D90;
+      grid-column: 1 / 2;
+      grid-row: 4 / 5;
+  }
+  .jugador-5 {
+      box-shadow: 4px 4px 2px #0090b8 ;
+      background-color:#00BFF3;
+      grid-column: 1 / 2;
+      grid-row: 5 / 6;
+  }
+  .jugador-6 {
+      box-shadow: 4px 4px 2px #9a8605 ;
+      background-color: #ddc007;
+      grid-column: 1 / 2;
+      grid-row: 6 / 7;
+  }
+  .jugador-7 {
+      box-shadow: 4px 4px 2px rgb(0, 59, 84) ;
+      background-color: #006A96;
+      grid-column: 1 / 2;
+      grid-row: 7 / 8;
+  }
+  .jugador-8 {
+      box-shadow: 4px 4px 2px #005822 ;
+      background-color: #008532;
+      grid-column: 1 / 2;
+      grid-row: 8 / 9;
+  }
+  .casilla-1 {
+      grid-column: 1 / 2;
+      grid-row: 1 / 2;
+  }
+  .casilla-2 {
+      grid-column: 2 / 3;
+      grid-row: 1 / 2;
+  }
+  .casilla-3 {
+      grid-column: 3 / 4;
+      grid-row: 1 / 2;
+  }
+  .casilla-4 {
+      grid-column: 4 / 5;
+      grid-row: 1 / 2;
+  }
+  .casilla-5 {
+      grid-column: 5 / 6;
+      grid-row: 1 / 2;
+  }
+  .casilla-6 {
+      grid-column: 6 / 7;
+      grid-row: 1 / 2;
+  }
+  .casilla-7 {
+      grid-column: 7 / 8;
+      grid-row: 1 / 2;
+  }
+  .casilla-8 {
+      grid-column: 8 / 9;
+      grid-row: 1 / 2;
+  }
+  .casilla-9 {
+      grid-column: 8 / 9;
+      grid-row: 2 / 3;
+  }
+  .casilla-10 {
+      grid-column: 8 / 9;
+      grid-row: 3 / 4;
+  }
+  .casilla-11 {
+      grid-column: 8 / 9;
+      grid-row: 4 / 5;
+  }
+  .casilla-12 {
+      grid-column: 8 / 9;
+      grid-row: 5 / 6;
+  }
+  .casilla-13 {
+      grid-column: 7 / 8;
+      grid-row: 5 / 6;
+  }
+  .casilla-14 {
+      grid-column: 6 / 7;
+      grid-row: 5 / 6;
+  }
+  .casilla-15 {
+      grid-column: 5 / 6;
+      grid-row: 5 / 6;
+  }
+  .casilla-16 {
+      grid-column: 4 / 5;
+      grid-row: 5 / 6;
+  }
+  .casilla-17 {
+      grid-column: 3 / 4;
+      grid-row: 5 / 6;
+  }
+  .casilla-18 {
+      grid-column: 2 / 3;
+      grid-row: 5 / 6;
+  }
+  .casilla-19 {
+      grid-column: 1 / 2;
+      grid-row: 5 / 6;
+  }
+  .casilla-20 {
+      grid-column: 1 / 2;
+      grid-row: 4 / 5;
+  }
+  .casilla-21 {
+      grid-column: 1 / 2;
+      grid-row: 3 / 4;
+  }
+  .casilla-22 {
+      grid-column: 1 / 2;
+      grid-row: 2 / 3;
+  }
+  
