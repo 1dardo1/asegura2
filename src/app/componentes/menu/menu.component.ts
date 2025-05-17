@@ -24,9 +24,12 @@ export class MenuComponent {
   modoEquiposSeleccionado = signal<boolean|null>(null);
   cantidadDeJugadores = signal<number|null>(null);
   jugadores = signal<string[] | null>(null);
-  jugador= signal<string>('');
+  
+  
   cantidadJugadoresSeleccionada = signal<number>(0);
   LinkBackwardIcon: any;
+  flag = false;
+
   
   constructor() {
     this.uttr = new SpeechSynthesisUtterance();
@@ -99,16 +102,36 @@ export class MenuComponent {
     }
 
   }
-  irPartida(){
-    const jugadoresNombres = this.jugadores();
-    const jugadoresInvalidos = jugadoresNombres?.filter(nombre => nombre.trim() === '') || [];
-    if (jugadoresInvalidos.length > 0) {
-      alert('Por favor, completa todos los nombres de los jugadores');
-    } else {
-      console.log('Jugadores:', jugadoresNombres);
-      this.router.navigate(['partida']);
+  irPartida() {
+    const lista = this.numerosRecortados();
+    let jugadoresSinNombre = false;
+    let nuevosJugadores: string[] = [];
+    if (lista) {
+      for (let i = 0; i < lista.length; i++) {
+        let numId = i + 1;
+        let id = "jugador" + numId;
+        let input = document.getElementById(id) as HTMLInputElement;
+        let nombre = input?.value || "";
+        console.log(nombre);
+        if (nombre === "") {
+          alert("El jugador " + numId + " no tiene nombre.");
+          this.uttr.text = "Escribid vuestros nombres";
+          window.speechSynthesis.speak(this.uttr);
+          jugadoresSinNombre = true;
+          break;
+        } else {
+          nuevosJugadores.push(nombre); 
+        }
+      }
+      if (!jugadoresSinNombre) {
+        this.jugadores.update((listaActual) => {
+          return listaActual ? [...listaActual, ...nuevosJugadores] : nuevosJugadores;
+        });
+          this.router.navigate(['partida'], { queryParams: { dificultad: this.dificultadSelecionada(), equipos: this.modoEquiposSeleccionado(), cantidadDeJugadores: this.cantidadJugadoresSeleccionada(), jugadores:this.jugadores()} }); 
+      }
     }
   }
+  
   irPantallaDeTitulo(){
     this.router.navigate(['pantallaDeTitulo']);
   }

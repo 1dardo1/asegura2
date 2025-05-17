@@ -90,9 +90,13 @@
                 <form class="jugadoresInput">
                     @for(num of numerosRecortados() ; track $index)
                     {
-                    <div class="jugador jugador{{num}}">
-                        <label for="nombre">Jugador {{num}}:</label>
-                        <input type="text" id="nombre" name="nombre" placeholder="Escribe tu nombre">
+                    <div class="jugador jugador{{num}}" >
+                        @if (modoEquiposSeleccionado()) {
+                            <label for="nombre">Equipo {{num}}:</label>
+                        }@else{
+                            <label for="nombre">Jugador {{num}}:</label>
+                        }
+                        <input type="text" id="jugador{{num}}" name="nombre" placeholder="Escribe tu nombre">
                     </div>
                     }
                 </form>

@@ -21,5 +21,4 @@ irSala(){
   this.uttr.text = "Selecciona una dificultad";
   window.speechSynthesis.speak(this.uttr);
 }
-
 }
