@@ -1,86 +1,78 @@
-// src/app/services/player.service.ts
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { Player } from '../models/player.model';
 
 @Injectable({ providedIn: 'root' })
 export class PlayerService {
-  private players: Player[] = [];
   private players$ = new BehaviorSubject<Player[]>([]);
   private currentPlayerIndex = 0;
 
-  /** Observable para UI */
-  getPlayers$() {
-    return this.players$.asObservable();
-  }
-
-  /** Índice de jugador activo */
-  getCurrentPlayer() {
-    return this.currentPlayerIndex;
-  }
-
-  /** 1) Inicializa jugadores */
-  initPlayers(configs: {
-    name: string;
-    salary: number;
-    monthlyFee: number;
-  }[]) {
-    this.players = configs.map((cfg, idx) => ({
-      id: idx,
-      name: cfg.name,
+  // Crea jugadores iniciales
+  initializePlayers(names: string[]): void {
+    const players = names.map((name, index) => ({
+      id: index + 1,
+      name,
       money: 1500,
-      salary: cfg.salary,
-      monthlyFee: cfg.monthlyFee,
-      position: 11,
+      salary: 200,
+      monthlyFee: 100,
+      position: 0,
       insured: [],
-      skipNextTurn: false
+      skipNextTurn: false,
+      avatarTexture: '' 
+
     }));
-    this.players$.next(this.players);
+    this.players$.next(players);
   }
 
-  /** 2) Mover jugador y cobrar salario si cruza salida */
-  movePlayer(id: number, steps: number, totalCells: number) {
-    const p = this.players[id];
-    const oldPos = p.position;
-    const newPos = (oldPos + steps) % totalCells;
-    if (oldPos + steps >= totalCells) {
-      p.money += p.salary;
+  // Obtener jugador actual
+  get currentPlayer(): Player {
+    return this.players$.value[this.currentPlayerIndex];
+  }
+
+  // Avanzar turno
+  nextTurn(): void {
+    if (this.currentPlayer.skipNextTurn) {
+      this.currentPlayer.skipNextTurn = false;
+      this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players$.value.length;
     }
-    p.position = newPos;
-    this.players$.next(this.players);
+    this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players$.value.length;
   }
 
-  /** 3) Cobrar mensualidad y bloquear si fondos insuficientes */
-  applyMonthlyFee(id: number, feeCellIndex: number) {
-    const p = this.players[id];
-    if (p.position === feeCellIndex) {
-      if (p.money >= p.monthlyFee) {
-        p.money -= p.monthlyFee;
-      } else {
-        p.skipNextTurn = true;
-      }
-      this.players$.next(this.players);
-    }
-  }
-
-  /** 4) Comprar seguro si puede */
-  buyInsurance(id: number, cellIndex: number, cost: number) {
-    const p = this.players[id];
-    if (!p.insured.includes(cellIndex) && p.money >= cost) {
-      p.money -= cost;
-      p.insured.push(cellIndex);
-      this.players$.next(this.players);
+  // Actualizar dinero
+  updateMoney(playerId: number, amount: number): void {
+    const players = [...this.players$.value];
+    const player = players.find(p => p.id === playerId);
+    if (player) {
+      player.money += amount;
+      this.players$.next(players);
     }
   }
 
-  /** 5) Pasar al siguiente jugador, saltando si está bloqueado */
-  nextPlayerTurn() {
-    let next = (this.currentPlayerIndex + 1) % this.players.length;
-    if (this.players[next].skipNextTurn) {
-      this.players[next].skipNextTurn = false;
-      this.players$.next(this.players);
-      next = (next + 1) % this.players.length;
+  // Comprar propiedad
+  buyInsurance(playerId: number, position: number): void {
+    const players = [...this.players$.value];
+    const player = players.find(p => p.id === playerId);
+    if (player && !player.insured.includes(position)) {
+      player.insured.push(position);
+      this.players$.next(players);
     }
-    this.currentPlayerIndex = next;
+  }
+
+  handleSalaryPayment(playerId: number): void {
+    const player = this.players$.value.find(p => p.id === playerId);
+    if (player) {
+      player.money += player.salary;
+      this.players$.next([...this.players$.value]);
+    }
+  }
+
+  handleMonthlyPayment(playerId: number): void {
+    const player = this.players$.value.find(p => p.id === playerId)!;
+    if (player && player.money >= player.monthlyFee) {
+      player.money -= player.monthlyFee;
+      this.players$.next([...this.players$.value]);
+    } else {
+      player.skipNextTurn = true;
+    }
   }
 }

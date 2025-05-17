@@ -12,6 +12,7 @@ import {
 } from '@angular/core';
 import Phaser from 'phaser';
 import { DiceService } from '../../services/dice.service';
+import { PlayerService } from '../../services/player.service';
 
 @Component({
   standalone: true,
@@ -33,17 +34,26 @@ import { DiceService } from '../../services/dice.service';
 
 
 export class GameComponent implements AfterViewInit, OnDestroy {
-  @ViewChild('gameContainer', { static: false })
-  gameContainer!: ElementRef<HTMLDivElement>;
+  private game!: Phaser.Game; 
+
+  @ViewChild('gameContainer', { static: true }) gameContainer!: ElementRef;
 
   private phaserGame!: Phaser.Game;
+  private players: Player[] = [];
+  private currentPlayer!: Player;
 
   constructor(
-    private injector: Injector,          // 🔹 para recuperar servicios
-    private diceService: DiceService     // 🔹 inyectamos el DiceService
+    private diceService: DiceService,
+    private playerService: PlayerService
   ) {}
 
   ngAfterViewInit(): void {
+    this.initializePhaserGame();
+    this.initializePlayers();
+    this.setupEventListeners();
+  }
+
+  private initializePhaserGame(): void {
     const config: Phaser.Types.Core.GameConfig = {
       type: Phaser.AUTO,
       width: window.innerWidth,
@@ -61,13 +71,73 @@ export class GameComponent implements AfterViewInit, OnDestroy {
       },  
       scene: [BoardScene]
     };
+    this.game = new Phaser.Game(config);
+  }
 
-    this.phaserGame = new Phaser.Game(config);
+  private initializePlayers(): void {
+    this.playerService.initializePlayers(['Jugador 1', 'Jugador 2']);
+    this.currentPlayer = this.playerService.currentPlayer;
+    
+    // Cargar sprites de jugadores en Phaser
+    this.game.events.once('ready', () => {
+      this.players.forEach(player => {
+        this.game.scene.getScene('BoardScene').add.sprite(
+          this.getTilePosition(player.position).x,
+          this.getTilePosition(player.position).y,
+          'player_token'
+        );
+      });
+    });
+  }
+
+  private setupEventListeners(): void {
+    // Escuchar eventos de Phaser
+    this.game.events.on('updatePosition', (newPosition: number) => {
+      this.handlePlayerMovement(newPosition);
+    });
+
+    // Escuchar eventos del dado
+    this.diceService.result$.subscribe(result => {
+      if (this.currentPlayer.skipNextTurn) return;
+      
+      this.movePlayer(result);
+    });
+  }
+
+  private movePlayer(spaces: number): void {
+    const newPosition = (this.currentPlayer.position + spaces) % 40;
+    this.game.events.emit('animateMovement', {
+      playerId: this.currentPlayer.id,
+      newPosition
+    });
+  }
+
+  private handlePlayerMovement(newPosition: number): void {
+    this.currentPlayer.position = newPosition;
+    this.handleBoardPosition(newPosition);
+    this.playerService.nextTurn();
+    this.currentPlayer = this.playerService.currentPlayer;
+  }
+
+  private handleBoardPosition(position: number): void {
+    // Lógica específica del tablero (delegar a servicio)
+    if (position === 0) {
+      this.playerService.handleSalaryPayment(this.currentPlayer.id);
+    }
+    
+    // Más lógicas de casillas...
+  }
+
+  private getTilePosition(index: number): { x: number; y: number } {
+    // Implementar lógica de posición del tablero
+    return { x: 0, y: 0 }; // Ejemplo simplificado
   }
 
   ngOnDestroy(): void {
     this.phaserGame?.destroy(true);
   }
+
+  
 }
 
 // ——————————————————————————————————————————
@@ -195,23 +265,30 @@ class BoardScene extends Phaser.Scene {
     this.turnText = this.add.text(20, 20, `Turno: Jugador ${this.currentPlayer + 1}`, {
       fontSize: '24px', color: '#000'
     }).setScrollFactor(0);
-// Texto del dado
-this.diceText = this.add.text(
-  this.scale.width / 2,
-  this.scale.height / 2,
-  '',
-  { fontSize: '120px', color: '#fff' }
-).setOrigin(0.5).setVisible(false)
- .setDepth(11); // Asegura que esté por encima
 
-// Texto de “Haz clic para continuar”
-this.continueText = this.add.text(
-  this.scale.width / 2,
-  this.scale.height / 2 + 100,
-  '',
-  { fontSize: '24px', color: '#fff' }
-).setOrigin(0.5).setVisible(false)
- .setDepth(11); // También por encima
+    // Texto del dado
+    const fontSize = Math.floor(this.scale.width * 0.05); 
+    const fontSizeNumber = Math.floor(this.scale.width * 0.1); 
+
+
+    this.diceText = this.add.text(
+      this.scale.width / 2,
+      this.scale.height / 2,
+      '',
+      { fontSize: `${fontSizeNumber}px`, color: '#fff' }
+    ).setOrigin(0.5)
+    .setVisible(false)
+    .setDepth(11); // Asegura que esté por encima
+
+    // Texto de “Haz clic para continuar”
+    this.continueText = this.add.text(
+      this.scale.width / 2,
+      this.scale.height / 2 + 100,
+      '',
+      {  fontSize: `${fontSize}px`, color: '#fff' }
+    ).setOrigin(0.5)
+      .setVisible(false)
+      .setDepth(11); // También por encima
 
 
     // Botón de dado
@@ -242,7 +319,7 @@ this.continueText = this.add.text(
   
       if (emissions === maxEmits) {
         this.continueText
-          .setText('Haz clic para continuar')
+          .setText('Pulsa para continuar')
           .setVisible(true);
   
         this.input.once('pointerdown', () => {
