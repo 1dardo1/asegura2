@@ -120,6 +120,10 @@ ngOnInit() {
         // Permite compartir servicios Angular con Phaser a través del registry
         preBoot: (game) => {
           game.registry.set('diceService', this.diceService);
+          game.registry.set('dificultad', this.dificultad());
+          game.registry.set('jugadores', this.jugadores());
+          game.registry.set('equipos', this.equipos());
+          game.registry.set('cantidadDeJugadores', this.cantidadDeJugadores());
         }
       },
       scene: [BoardScene]
@@ -132,10 +136,11 @@ ngOnInit() {
    */
   private initializePlayers(): void {
     // Inicializa jugadores usando el servicio correspondiente
-    
-    this.playerService.initializePlayers(this.jugadores()!);
+    if (!this.playerService.getCurrentPlayers().length)  {
+      this.playerService.initializePlayers(this.jugadores()!);
+    }
     this.currentPlayer = this.playerService.currentPlayer;
-
+  
     // Cuando Phaser esté listo, añade los sprites de los jugadores al tablero
     this.game.events.once('ready', () => {
       this.players.forEach(player => {
@@ -143,7 +148,7 @@ ngOnInit() {
       });
     });
   }
-
+  
   /**
    * Configura listeners para eventos del dado y del juego.
    */
@@ -168,6 +173,7 @@ ngOnInit() {
    */
   private movePlayer(spaces: number): void {
     const newPosition = (this.currentPlayer.position + spaces) % 40;
+    this.playerService.updatePlayerPosition(this.currentPlayer.id, newPosition);
     this.game.events.emit('animateMovement', {
       playerId: this.currentPlayer.id,
       newPosition
@@ -204,10 +210,16 @@ class BoardScene extends Phaser.Scene {
   private turnText!: Phaser.GameObjects.Text;
   private overlay!: Phaser.GameObjects.Rectangle;
 
+  // Configuración de juego
+  dificultad = signal<Dificultad|null>(null);
+  equipos = signal<boolean|null>(null);
+  cantidadDeJugadores = 0;
+  jugadores = signal<string[] | null>(null);
+
   // Fichas de jugadores y estados
   private tokens: Phaser.GameObjects.Image[] = [];
   private currentIndex: number[] = [];
-  private playerCount = 8;
+  private playerCount = signal<number|null>(null);
   private currentPlayer = 0;
   private cellPositions: { x: number, y: number }[] = [];
 
@@ -220,6 +232,10 @@ class BoardScene extends Phaser.Scene {
    */
   init(): void {
     this.diceService = this.game.registry.get('diceService');
+    this.dificultad = this.game.registry.get('dificultad');
+    this.jugadores = this.game.registry.get('jugadores');
+    this.cantidadDeJugadores = this.game.registry.get('cantidadDeJugadores');
+    this.equipos = this.game.registry.get('equipos');
   }
 
   /**
@@ -307,7 +323,7 @@ class BoardScene extends Phaser.Scene {
 
     // 7. Añadir fichas de jugadores a la primera casilla
     const startIdx = 11; // Índice inicial (ajustar según diseño)
-    for (let i = 0; i < this.playerCount; i++) {
+    for (let i = 0; i < this.cantidadDeJugadores; i++) {
       const pos = this.cellPositions[startIdx];
       const token = this.add.image(pos.x, pos.y, `ficha${i + 1}`)
         .setOrigin(0.5, 0.5)
@@ -317,7 +333,7 @@ class BoardScene extends Phaser.Scene {
     }
 
     // 8. Texto de turno actual
-    this.turnText = this.add.text(20, 20, `Turno: Jugador ${this.currentPlayer + 1}`, {
+    this.turnText = this.add.text(20, 20, `Turno: ${this.currentPlayer + 1}`, {
       fontSize: '24px', color: '#000'
     }).setScrollFactor(0);
 
@@ -425,7 +441,7 @@ class BoardScene extends Phaser.Scene {
 
     this.currentIndex[this.currentPlayer] = (from + steps) % total;
     const newPosition = this.currentIndex[this.currentPlayer];
-    this.currentPlayer = (this.currentPlayer + 1) % this.playerCount;
+    this.currentPlayer = (this.currentPlayer + 1) % this.cantidadDeJugadores;
 
     this.game.events.emit('updatePosition', newPosition);
 

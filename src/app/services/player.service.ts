@@ -10,45 +10,84 @@ import { Player } from '../models/player.model';
  */
 @Injectable({ providedIn: 'root' })
 export class PlayerService {
-  /** Almacena y emite el estado actual de todos los jugadores */
-  private players$ = new BehaviorSubject<Player[]>([]);
-  
+  /** Almacena y emite el estado actual de todos los jugadores (privado) */
+  private playersSubject = new BehaviorSubject<Player[]>([]);
+  /** Observable público para suscribirse a cambios de jugadores */
+  public players$ = this.playersSubject.asObservable();
+
   /** Índice del jugador actual en el array */
   private currentPlayerIndex = 0;
+
+  constructor() {
+    this.loadPlayersFromStorage();
+    // Guarda automáticamente en localStorage cada vez que cambian los jugadores
+    this.playersSubject.subscribe(players => {
+      localStorage.setItem('players', JSON.stringify(players));
+    });
+  }
+
+  /** Carga los jugadores guardados desde localStorage (si existen) */
+  private loadPlayersFromStorage(): void {
+    const saved = localStorage.getItem('players');
+    if (saved) {
+      try {
+        const players = JSON.parse(saved);
+        this.playersSubject.next(players);
+      } catch (error) {
+        console.error('Error al cargar jugadores:', error);
+      }
+    }
+  }
+
+  /** Devuelve el array actual de jugadores */
+  getCurrentPlayers(): Player[] {
+    return this.playersSubject.value;
+  }
+  
 
   /**
    * Inicializa los jugadores con valores por defecto
    * @param names Nombres de los jugadores (ej: ['Jugador 1', 'Jugador 2'])
    */
   initializePlayers(names: string[]): void {
-    const players = names.map((name, index) => ({
-      id: index + 1,
-      name,
-      money: 1500,       // Dinero inicial
-      salary: 200,       // Salario por vuelta completa
-      monthlyFee: 100,   // Cuota mensual (no usado en la versión actual)
-      position: 0,       // Casilla inicial
-      insured: [],       // Propiedades aseguradas (no usado en la versión actual)
-      skipNextTurn: false, // Control de turnos perdidos
-      avatarTexture: ''  // Textura para el sprite (no implementado)
-    }));
-    this.players$.next(players);
+    if (!this.playersSubject.value.length) {
+      const players = names.map((name, index) => ({
+        id: index + 1,
+        name,
+        money: 1000,       // Dinero inicial
+        salary: 200,       // Salario por vuelta completa
+        monthlyFee: 100,   // Cuota mensual (no usado en la versión actual)
+        position: 11,      // Casilla inicial
+        insured: [],       // Propiedades aseguradas (no usado en la versión actual)
+        skipNextTurn: false, // Control de turnos perdidos
+      }));
+      this.playersSubject.next(players);
+    }
   }
 
   /** Obtiene el jugador actual */
   get currentPlayer(): Player {
-    return this.players$.value[this.currentPlayerIndex];
+    return this.playersSubject.value[this.currentPlayerIndex];
   }
-
+  updatePlayerPosition(playerId: number, newPosition: number): void {
+    const players = this.playersSubject.value;
+    const idx = players.findIndex(p => p.id === playerId);
+    if (idx !== -1) {
+      const updatedPlayer = { ...players[idx], position: newPosition };
+      const updatedPlayers = [...players];
+      updatedPlayers[idx] = updatedPlayer;
+      this.playersSubject.next(updatedPlayers); // Esto guarda en localStorage
+    }
+  }
   /**
    * Avanza al siguiente turno, aplicando lógica de turnos perdidos
    */
   nextTurn(): void {
     if (this.currentPlayer.skipNextTurn) {
       this.currentPlayer.skipNextTurn = false;
-      this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players$.value.length;
+      this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.playersSubject.value.length;
     }
-    this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players$.value.length;
+    this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.playersSubject.value.length;
   }
 
   /**
@@ -56,10 +95,18 @@ export class PlayerService {
    * @param playerId ID del jugador que recibe el salario
    */
   handleSalaryPayment(playerId: number): void {
-    const player = this.players$.value.find(p => p.id === playerId);
+    const players = this.playersSubject.value;
+    const player = players.find(p => p.id === playerId);
     if (player) {
       player.money += player.salary;
-      this.players$.next([...this.players$.value]);
+      this.playersSubject.next([...players]);
     }
+  }
+
+  /** Borra el estado de la partida */
+  resetGame(): void {
+    localStorage.removeItem('players');
+    this.playersSubject.next([]);
+    this.currentPlayerIndex = 0;
   }
 }

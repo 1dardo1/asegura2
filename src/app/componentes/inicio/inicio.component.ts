@@ -15,7 +15,9 @@ constructor() {
   this.uttr = new SpeechSynthesisUtterance();
   this.uttr.lang = 'es-ES';
 }
-
+ngOnInit() {          
+  localStorage.clear();
+}
 irSala(){
   this.router.navigate(['sala']);
   this.uttr.text = "Selecciona una dificultad";

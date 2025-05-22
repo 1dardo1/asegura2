@@ -30,7 +30,7 @@ export class MenuComponent {
   LinkBackwardIcon: any;
   flag = false;
 
-  
+
   constructor() {
     this.uttr = new SpeechSynthesisUtterance();
     this.uttr.lang = 'es-ES';
