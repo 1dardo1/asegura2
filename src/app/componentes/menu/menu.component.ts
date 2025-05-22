@@ -127,7 +127,7 @@ export class MenuComponent {
         this.jugadores.update((listaActual) => {
           return listaActual ? [...listaActual, ...nuevosJugadores] : nuevosJugadores;
         });
-          this.router.navigate(['partida'], { queryParams: { dificultad: this.dificultadSelecionada(), equipos: this.modoEquiposSeleccionado(), cantidadDeJugadores: this.cantidadJugadoresSeleccionada(), jugadores:this.jugadores()} }); 
+          this.router.navigate(['juego'], { queryParams: { dificultad: this.dificultadSelecionada(), equipos: this.modoEquiposSeleccionado(), cantidadDeJugadores: this.cantidadJugadoresSeleccionada(), jugadores:this.jugadores()} }); 
       }
     }
   }

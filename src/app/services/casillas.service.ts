@@ -31,7 +31,6 @@ export class CasillasService {
         case 1:
         case 12: // Seguro de salud
             console.log(`${player.name} en Seguro de Salud`);
-            // Lógica futura para seguro de salud
             break;
         case 3:
         case 14: // Seguro de vida

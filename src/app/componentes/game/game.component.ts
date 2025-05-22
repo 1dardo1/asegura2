@@ -1,17 +1,24 @@
 import { CommonModule } from '@angular/common';
 import { Player } from '../../models/player.model';
+import { Router } from '@angular/router';
+
 
 import {
   Component,
   ElementRef,
   AfterViewInit,
   OnDestroy,
-  ViewChild
+  ViewChild,
+  inject,
+  signal
 } from '@angular/core';
 import Phaser from 'phaser';
 import { DiceService } from '../../services/dice.service';
 import { PlayerService } from '../../services/player.service';
 import { CasillasService } from '../../services/casillas.service'; 
+import { ActivatedRoute } from '@angular/router';
+
+enum Dificultad{FACIL="FACIL", MEDIA="MEDIA", DIFICIL="DIFICIL"};
 
 /**
  * Componente principal del juego.
@@ -38,6 +45,12 @@ import { CasillasService } from '../../services/casillas.service';
 export class GameComponent implements AfterViewInit, OnDestroy {
   // Instancia del juego Phaser
   private game!: Phaser.Game;
+  router = inject(Router);
+  private route = inject(ActivatedRoute);   Dificultad =Dificultad;
+  dificultad = signal<Dificultad|null>(null);
+  equipos = signal<boolean|null>(null);
+  cantidadDeJugadores = signal<number|null>(null);
+  jugadores = signal<string[] | null>(null);
 
   // Referencia al contenedor DOM donde se renderiza Phaser
   @ViewChild('gameContainer', { static: true }) gameContainer!: ElementRef;
@@ -60,6 +73,34 @@ export class GameComponent implements AfterViewInit, OnDestroy {
     this.initializePlayers();
     this.setupEventListeners();
   }
+  
+ngOnInit() {
+  this.route.queryParams.subscribe((params: { [key: string]: any })  => {
+    this.dificultad.set(params['dificultad']);
+    this.equipos.set(params['equipos']);
+    this.cantidadDeJugadores.set(params['cantidadDeJugadores']);
+    this.jugadores.set(params['jugadores']);
+
+    // Obtenemos los valores actuales
+    const dificultad = this.dificultad();
+    const equipos = this.equipos();
+    const cantidadDeJugadores = this.cantidadDeJugadores();
+    const jugadores = this.jugadores();
+
+    // Verificación
+    if (
+      dificultad == null ||
+      equipos == null ||
+      cantidadDeJugadores == null ||
+      jugadores == null
+    ) {
+      alert('Error: Faltan parámetros obligatorios en la URL.');
+      this.router.navigate(['sala']);
+      return;
+    }
+  });
+}
+
 
   /**
    * Configura e instancia el juego Phaser.
@@ -91,7 +132,8 @@ export class GameComponent implements AfterViewInit, OnDestroy {
    */
   private initializePlayers(): void {
     // Inicializa jugadores usando el servicio correspondiente
-    this.playerService.initializePlayers(['Jugador 1', 'Jugador 2', 'Jugador 3', 'Jugador 4', 'Jugador 5', 'Jugador 6', 'Jugador 7', 'Jugador 8']);
+    
+    this.playerService.initializePlayers(this.jugadores()!);
     this.currentPlayer = this.playerService.currentPlayer;
 
     // Cuando Phaser esté listo, añade los sprites de los jugadores al tablero
