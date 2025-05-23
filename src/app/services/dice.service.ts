@@ -1,4 +1,5 @@
 // src/app/services/dice.service.ts
+
 import { Injectable } from '@angular/core';
 import { Subject, Observable, interval } from 'rxjs';
 import { take, finalize, map } from 'rxjs/operators';
@@ -11,12 +12,13 @@ import { take, finalize, map } from 'rxjs/operators';
  */
 @Injectable({ providedIn: 'root' })
 export class DiceService {
+  // ======== Inicializaciones ========
   /** Subject para emitir los resultados del dado */
   private resultSubject = new Subject<number>();
-  
   /** Observable público para suscribirse a los resultados */
-  result$ = this.resultSubject.asObservable();
+  public result$ = this.resultSubject.asObservable();
 
+  // ======== Métodos principales ========
   /**
    * Simula el lanzamiento del dado:
    * 1. Emite 15 valores aleatorios rápidos (para efecto visual)
@@ -26,9 +28,9 @@ export class DiceService {
     const spins = 15; // Número de cambios durante la animación
     const min = 1;    // Valor mínimo del dado
     const max = 6;    // Valor máximo del dado
-    
-    interval(100).pipe(               // Emite cada 100ms
-      take(spins),                    // Limita a 15 emisiones
+
+    interval(100).pipe(
+      take(spins), // Limita a 15 emisiones
       map(() => Math.floor(Math.random() * (max - min + 1)) + min), // Genera números 1-6
       finalize(() => {
         // Lugar para limpieza (no necesario aquí ya que el Subject se maneja externamente)
@@ -44,4 +46,7 @@ export class DiceService {
       }
     });
   }
+
+  // ======== Métodos de limpieza/eliminación ========
+  // (No hay métodos de limpieza en este servicio, pero aquí irían si fueran necesarios)
 }

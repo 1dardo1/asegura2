@@ -1,8 +1,6 @@
+// ======== Importaciones ========
 import { CommonModule } from '@angular/common';
-import { Player } from '../../models/player.model';
-import { Router } from '@angular/router';
-
-
+import { Router, ActivatedRoute } from '@angular/router';
 import {
   Component,
   ElementRef,
@@ -12,14 +10,23 @@ import {
   inject,
   signal
 } from '@angular/core';
+import { Subscription } from 'rxjs';
+
+// Frameworks y servicios
 import Phaser from 'phaser';
 import { DiceService } from '../../services/dice.service';
 import { PlayerService } from '../../services/player.service';
-import { CasillasService } from '../../services/casillas.service'; 
-import { ActivatedRoute } from '@angular/router';
+import { CasillasService } from '../../services/casillas.service';
+import { Player } from '../../models/player.model';
 
-enum Dificultad{FACIL="FACIL", MEDIA="MEDIA", DIFICIL="DIFICIL"};
+// ======== Enumerados ========
+enum Dificultad {
+  FACIL = "FACIL",
+  MEDIA = "MEDIA",
+  DIFICIL = "DIFICIL"
+}
 
+// ======== Decorador del Componente ========
 /**
  * Componente principal del juego.
  * Renderiza el contenedor de Phaser y gestiona la lógica de jugadores y eventos.
@@ -28,83 +35,69 @@ enum Dificultad{FACIL="FACIL", MEDIA="MEDIA", DIFICIL="DIFICIL"};
   standalone: true,
   selector: 'app-game',
   template: '<div #gameContainer class="full-screen"></div>',
-  styles: [
-    `
-      .full-screen {
-        width: 100vw;
-        height: 100vh;
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-      }
-    `
-  ],
+  styles: [`
+    .full-screen {
+      width: 100vw;
+      height: 100vh;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+  `],
   imports: [CommonModule]
 })
 
-export class GameComponent implements AfterViewInit, OnDestroy {
-  // Instancia del juego Phaser
-  private game!: Phaser.Game;
-  router = inject(Router);
-  private route = inject(ActivatedRoute);   Dificultad =Dificultad;
-  dificultad = signal<Dificultad|null>(null);
-  equipos = signal<boolean|null>(null);
-  cantidadDeJugadores = signal<number|null>(null);
-  jugadores = signal<string[] | null>(null);
 
-  // Referencia al contenedor DOM donde se renderiza Phaser
+
+// ======== Clase del Componente ========
+export class GameComponent implements AfterViewInit, OnDestroy {
+  // ======== Inicializaciones ========
+  // Servicios inyectados
+  private router = inject(Router);
+  private route = inject(ActivatedRoute);
+  private diceService = inject(DiceService);
+  private playerService = inject(PlayerService);
+  private casillasService = inject(CasillasService);
+
+  // Referencias del DOM
   @ViewChild('gameContainer', { static: true }) gameContainer!: ElementRef;
 
-  // Lista de jugadores y jugador actual
+  // Estado del juego
+  private game!: Phaser.Game;
+  private playersSub!: Subscription;
   private players: Player[] = [];
   private currentPlayer!: Player;
 
-  constructor(
-    private diceService: DiceService,
-    private playerService: PlayerService,
-    private casillasService: CasillasService 
-  ) {}
+  // Señales de estado
+  Dificultad = Dificultad;
+  dificultad = signal<Dificultad | null>(null);
+  equipos = signal<boolean | null>(null);
+  cantidadDeJugadores = signal<number | null>(null);
+  jugadores = signal<string[] | null>(null);
 
-  /**
-   * Inicializa Phaser, los jugadores y los listeners después de que la vista se ha renderizado.
-   */
+  // ======== Métodos del ciclo de vida ========
+  ngOnInit() {
+    this.route.queryParams.subscribe((params: { [key: string]: any }) => {
+      this.dificultad.set(params['dificultad']);
+      this.equipos.set(params['equipos']);
+      this.cantidadDeJugadores.set(params['cantidadDeJugadores']);
+      this.jugadores.set(params['jugadores']);
+
+      this.validateGameParameters();
+    });
+  }
+
   ngAfterViewInit(): void {
     this.initializePhaserGame();
     this.initializePlayers();
     this.setupEventListeners();
   }
-  
-ngOnInit() {
-  this.route.queryParams.subscribe((params: { [key: string]: any })  => {
-    this.dificultad.set(params['dificultad']);
-    this.equipos.set(params['equipos']);
-    this.cantidadDeJugadores.set(params['cantidadDeJugadores']);
-    this.jugadores.set(params['jugadores']);
 
-    // Obtenemos los valores actuales
-    const dificultad = this.dificultad();
-    const equipos = this.equipos();
-    const cantidadDeJugadores = this.cantidadDeJugadores();
-    const jugadores = this.jugadores();
+  ngOnDestroy(): void {
+    this.cleanupGameResources();
+  }
 
-    // Verificación
-    if (
-      dificultad == null ||
-      equipos == null ||
-      cantidadDeJugadores == null ||
-      jugadores == null
-    ) {
-      alert('Error: Faltan parámetros obligatorios en la URL.');
-      this.router.navigate(['sala']);
-      return;
-    }
-  });
-}
-
-
-  /**
-   * Configura e instancia el juego Phaser.
-   */
+  // ======== Métodos de inicialización ========
   private initializePhaserGame(): void {
     const config: Phaser.Types.Core.GameConfig = {
       type: Phaser.AUTO,
@@ -117,62 +110,52 @@ ngOnInit() {
         autoCenter: Phaser.Scale.CENTER_BOTH
       },
       callbacks: {
-        // Permite compartir servicios Angular con Phaser a través del registry
-        preBoot: (game) => {
-          game.registry.set('diceService', this.diceService);
-          game.registry.set('dificultad', this.dificultad());
-          game.registry.set('jugadores', this.jugadores());
-          game.registry.set('equipos', this.equipos());
-          game.registry.set('cantidadDeJugadores', this.cantidadDeJugadores());
-        }
+        preBoot: (game) => this.registerPhaserServices(game)
       },
       scene: [BoardScene]
     };
     this.game = new Phaser.Game(config);
   }
 
-  /**
-   * Inicializa los jugadores y carga sus sprites en Phaser.
-   */
+  private registerPhaserServices(game: Phaser.Game): void {
+    game.registry.set('diceService', this.diceService);
+    game.registry.set('playerService', this.playerService);
+    game.registry.set('dificultad', this.dificultad());
+    game.registry.set('jugadores', this.jugadores());
+    game.registry.set('equipos', this.equipos());
+    game.registry.set('cantidadDeJugadores', this.cantidadDeJugadores());
+  }
+
   private initializePlayers(): void {
-    // Inicializa jugadores usando el servicio correspondiente
-    if (!this.playerService.getCurrentPlayers().length)  {
+    if (!this.playerService.getCurrentPlayers().length) {
       this.playerService.initializePlayers(this.jugadores()!);
     }
     this.currentPlayer = this.playerService.currentPlayer;
-  
-    // Cuando Phaser esté listo, añade los sprites de los jugadores al tablero
+
     this.game.events.once('ready', () => {
       this.players.forEach(player => {
-        this.game.scene.getScene('BoardScene').add.sprite(0,0,'player_token');
+        this.game.scene.getScene('BoardScene').add.sprite(0, 0, 'player_token');
       });
     });
   }
-  
-  /**
-   * Configura listeners para eventos del dado y del juego.
-   */
+
+  // ======== Métodos de lógica principal ========
   private setupEventListeners(): void {
-    // Paso por casillas durante el movimiento
     this.game.events.on('passingPosition', (position: number) => {
       this.casillasService.handlePassingPosition(position, this.currentPlayer);
     });
-    // Escucha eventos de movimiento de jugador desde Phaser
+
     this.game.events.on('updatePosition', (newPosition: number) => {
       this.handlePlayerMovement(newPosition);
     });
-    // Escucha resultados del dado y mueve al jugador si corresponde
+
     this.diceService.result$.subscribe(result => {
-      if (this.currentPlayer.skipNextTurn) return;
-      this.movePlayer(result);
+      if (!this.currentPlayer.skipNextTurn) this.movePlayer(result);
     });
   }
 
-  /**
-   * Calcula la nueva posición del jugador y emite el evento para animar el movimiento.
-   */
   private movePlayer(spaces: number): void {
-    const newPosition = (this.currentPlayer.position + spaces) % 40;
+    const newPosition = (this.currentPlayer.position + spaces) % 22;
     this.playerService.updatePlayerPosition(this.currentPlayer.id, newPosition);
     this.game.events.emit('animateMovement', {
       playerId: this.currentPlayer.id,
@@ -180,9 +163,6 @@ ngOnInit() {
     });
   }
 
-  /**
-   * Actualiza la posición del jugador y gestiona la lógica de la casilla.
-   */
   private handlePlayerMovement(newPosition: number): void {
     this.currentPlayer.position = newPosition;
     this.casillasService.handleBoardPosition(newPosition, this.currentPlayer);
@@ -190,36 +170,46 @@ ngOnInit() {
     this.currentPlayer = this.playerService.currentPlayer;
   }
 
-  /**
-   * Destruye la instancia de Phaser al destruir el componente.
-   */
-  ngOnDestroy(): void {
+  // ======== Métodos de validación y limpieza ========
+  private validateGameParameters(): void {
+    if (
+      !this.dificultad() ||
+      this.equipos() === null ||
+      !this.cantidadDeJugadores() ||
+      !this.jugadores()
+    ) {
+      alert('Error: Faltan parámetros obligatorios en la URL.');
+      this.router.navigate(['sala']);
+    }
+  }
+
+  private cleanupGameResources(): void {
     this.game?.destroy(true);
+    this.playersSub?.unsubscribe();
   }
 }
 
-// ——————————————————————————————————————————
-// Clase BoardScene: escena principal del tablero en Phaser
-// ——————————————————————————————————————————
 class BoardScene extends Phaser.Scene {
+  // ======== Inicializaciones de variables y servicios ========
   private diceBtn!: Phaser.GameObjects.Image;
   private diceService!: DiceService;
+  private playerService!: PlayerService;
   private diceSub?: any;
   private diceText!: Phaser.GameObjects.Text;
   private continueText!: Phaser.GameObjects.Text;
   private turnText!: Phaser.GameObjects.Text;
   private overlay!: Phaser.GameObjects.Rectangle;
 
-  // Configuración de juego
-  dificultad = signal<Dificultad|null>(null);
-  equipos = signal<boolean|null>(null);
+  // Configuración y estado del juego
+  dificultad = signal<Dificultad | null>(null);
+  equipos = signal<boolean | null>(null);
   cantidadDeJugadores = 0;
   jugadores = signal<string[] | null>(null);
 
-  // Fichas de jugadores y estados
+  // Fichas y posiciones de jugadores
   private tokens: Phaser.GameObjects.Image[] = [];
   private currentIndex: number[] = [];
-  private playerCount = signal<number|null>(null);
+  private playerCount = signal<number | null>(null);
   private currentPlayer = 0;
   private cellPositions: { x: number, y: number }[] = [];
 
@@ -227,11 +217,14 @@ class BoardScene extends Phaser.Scene {
     super({ key: 'BoardScene' });
   }
 
+  // ======== Métodos de ciclo de vida Phaser ========
+
   /**
    * Inicializa servicios necesarios desde el registry de Phaser.
    */
   init(): void {
     this.diceService = this.game.registry.get('diceService');
+    this.playerService = this.game.registry.get('playerService');
     this.dificultad = this.game.registry.get('dificultad');
     this.jugadores = this.game.registry.get('jugadores');
     this.cantidadDeJugadores = this.game.registry.get('cantidadDeJugadores');
@@ -261,11 +254,9 @@ class BoardScene extends Phaser.Scene {
     const cw = this.scale.width;
     const ch = this.scale.height;
 
-    // 1. Coloca y escala el tablero (75% ancho, pegado a la derecha, centrado vertical)
+    // 1. Coloca y escala el tablero
     const marginRight = 20;
     const board = this.add.image(cw - marginRight, ch / 2, 'tablero').setOrigin(1, 0.5);
-
-    // Escala el tablero para ocupar el 75% del ancho disponible
     const targetW = cw * 0.75;
     const scaleFactor = Math.min(targetW / board.width, ch / board.height);
     board.setScale(scaleFactor);
@@ -274,40 +265,33 @@ class BoardScene extends Phaser.Scene {
     const bw = board.width * board.scaleX;
     const bh = board.height * board.scaleY;
 
-    // Fondo oscurecido para mostrar encima de la UI
+    // 3. Fondo oscurecido para la UI
     this.overlay = this.add.rectangle(0, 0, cw, ch, 0x000000, 0.5)
       .setOrigin(0)
       .setVisible(false)
       .setDepth(10);
 
-    // 3. Parámetros de malla: 8 columnas × 5 filas
+    // 4. Parámetros de malla y cálculo de casillas
     const cols = 8;
     const rows = 5;
     const cellW = bw / cols;
     const cellH = bh / rows;
-
-    // 4. Esquina superior-izquierda del tablero
     const topLeftX = board.x - bw;
     const topLeftY = board.y - bh / 2;
-
-    // 5. Calcula posiciones de las casillas en el perímetro (total = 2*(cols+rows)-4)
     const total = 2 * (cols + rows) - 4;
+
     for (let i = 0; i < total; i++) {
       let row: number, col: number;
       if (i < cols) {
-        // Fila inferior, de derecha a izquierda
         row = rows - 1;
         col = cols - 1 - i;
       } else if (i < cols + (rows - 1)) {
-        // Columna izquierda, de abajo a arriba
         col = 0;
         row = rows - 1 - (i - (cols - 1));
       } else if (i < cols + (rows - 1) + (cols - 1)) {
-        // Fila superior, de izquierda a derecha
         row = 0;
         col = i - (cols + rows - 2);
       } else {
-        // Columna derecha, de arriba a abajo
         col = cols - 1;
         row = i - (cols + rows - 2 + cols - 1);
       }
@@ -316,28 +300,30 @@ class BoardScene extends Phaser.Scene {
       this.cellPositions.push({ x, y });
     }
 
-    // 6. Debug: dibuja un punto rojo en el centro de cada casilla
+    // 5. Debug: dibuja un punto rojo en el centro de cada casilla
     this.cellPositions.forEach((pos) =>
       this.add.circle(pos.x, pos.y, 5, 0xff0000)
     );
 
-    // 7. Añadir fichas de jugadores a la primera casilla
-    const startIdx = 11; // Índice inicial (ajustar según diseño)
-    for (let i = 0; i < this.cantidadDeJugadores; i++) {
-      const pos = this.cellPositions[startIdx];
+    // 6. Añadir fichas de jugadores a la primera casilla
+    const players = this.playerService.getCurrentPlayers();
+    for (let i = 0; i < players.length; i++) {
+      const player = players[i];
+      const posIndex = player?.position ?? 11;
+      const pos = this.cellPositions[posIndex];
       const token = this.add.image(pos.x, pos.y, `ficha${i + 1}`)
         .setOrigin(0.5, 0.5)
         .setScale(0.3);
       this.tokens.push(token);
-      this.currentIndex.push(startIdx);
+      this.currentIndex.push(posIndex);
     }
 
-    // 8. Texto de turno actual
+    // 7. Texto de turno actual
     this.turnText = this.add.text(20, 20, `Turno: ${this.currentPlayer + 1}`, {
       fontSize: '24px', color: '#000'
     }).setScrollFactor(0);
 
-    // 9. Texto del dado (resultado)
+    // 8. Texto del dado (resultado)
     const fontSize = Math.floor(this.scale.width * 0.05);
     const fontSizeNumber = Math.floor(this.scale.width * 0.1);
     this.diceText = this.add.text(
@@ -349,7 +335,7 @@ class BoardScene extends Phaser.Scene {
       .setVisible(false)
       .setDepth(11);
 
-    // 10. Texto de “Haz clic para continuar”
+    // 9. Texto de “Haz clic para continuar”
     this.continueText = this.add.text(
       this.scale.width / 2,
       this.scale.height / 2 + 100,
@@ -359,7 +345,7 @@ class BoardScene extends Phaser.Scene {
       .setVisible(false)
       .setDepth(11);
 
-    // 11. Botón de dado
+    // 10. Botón de dado
     const diceX = topLeftX + 1.7 * cellW;
     const diceY = topLeftY + 2.9 * cellH + cellH / 2;
     this.diceBtn = this.add.image(diceX, diceY, 'dado')
@@ -368,6 +354,8 @@ class BoardScene extends Phaser.Scene {
       .setScrollFactor(0)
       .on('pointerdown', () => this.onDicePressed());
   }
+
+  // ======== Métodos de lógica principal ========
 
   /**
    * Lógica al pulsar el botón del dado: lanza el dado y gestiona la animación y el turno.
@@ -425,8 +413,6 @@ class BoardScene extends Phaser.Scene {
         this.game.events.emit('passingPosition', nextIndex);
       }
 
-      // --- Fin comprobación ---
-
       const pos = this.cellPositions[nextIndex];
       await new Promise<void>(res => {
         this.tweens.add({
@@ -446,13 +432,5 @@ class BoardScene extends Phaser.Scene {
     this.game.events.emit('updatePosition', newPosition);
 
     onDone();
-  }
-
-
-  /**
-   * Método de actualización de la escena (opcional para animaciones o lógica adicional).
-   */
-  override update(): void {
-    // lógica de actualización (animaciones, turnos, etc.)
   }
 }
