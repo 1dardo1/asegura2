@@ -18,6 +18,10 @@ import { DiceService } from '../../services/dice.service';
 import { PlayerService } from '../../services/player.service';
 import { CasillasService } from '../../services/casillas.service';
 import { Player } from '../../models/player.model';
+import { ModalService } from '../../services/modal.service';
+import { seguros } from '../../services/casillas.service';
+
+
 
 // ======== Enumerados ========
 enum Dificultad {
@@ -49,6 +53,8 @@ enum Dificultad {
 
 
 
+
+
 // ======== Clase del Componente ========
 export class GameComponent implements AfterViewInit, OnDestroy {
   // ======== Inicializaciones ========
@@ -58,9 +64,12 @@ export class GameComponent implements AfterViewInit, OnDestroy {
   private diceService = inject(DiceService);
   private playerService = inject(PlayerService);
   private casillasService = inject(CasillasService);
+  private modalService = inject(ModalService);
+  
 
   // Referencias del DOM
   @ViewChild('gameContainer', { static: true }) gameContainer!: ElementRef;
+  
 
   // Estado del juego
   private game!: Phaser.Game;
@@ -74,6 +83,12 @@ export class GameComponent implements AfterViewInit, OnDestroy {
   equipos = signal<boolean | null>(null);
   cantidadDeJugadores = signal<number | null>(null);
   jugadores = signal<string[] | null>(null);
+  
+  //Otras variables
+  mostrarModal = false;
+  datosSeguro: any = null;
+  jugadorSeguro: Player | null = null;
+  
 
   // ======== Métodos del ciclo de vida ========
   ngOnInit() {
@@ -91,10 +106,32 @@ export class GameComponent implements AfterViewInit, OnDestroy {
     this.initializePhaserGame();
     this.initializePlayers();
     this.setupEventListeners();
+    this.modalService.seguro$.subscribe(({ player, seguro }) => {
+      const scene = this.game.scene.keys['BoardScene'] as BoardScene;
+      if (scene && typeof scene.solicitarModalSeguro === 'function') {
+        // Llama directamente a mostrarSeguroModal, gestionando la cola correctamente
+        scene.solicitarModalSeguro(player, seguro);
+      } else {
+        console.warn('No se encontró la función solicitarModalSeguro en la escena activa');
+      }
+    });
   }
 
   ngOnDestroy(): void {
     this.cleanupGameResources();
+  }
+
+
+  obtenerDatosSeguro(seguroEnum: string) {
+    // Devuelve los datos según el enum
+    switch (seguroEnum) {
+      case 'SALUD':
+        return { nombre: 'Seguro de Salud', precio: 100, imagen: 'RUTA_IMAGEN_SALUD', enum: seguroEnum };
+      case 'VIDA':
+        return { nombre: 'Seguro de Vida', precio: 150, imagen: 'RUTA_IMAGEN_VIDA', enum: seguroEnum };
+      // ...otros casos
+    }
+    return null;
   }
 
   // ======== Métodos de inicialización ========
@@ -119,6 +156,7 @@ export class GameComponent implements AfterViewInit, OnDestroy {
 
   private registerPhaserServices(game: Phaser.Game): void {
     game.registry.set('diceService', this.diceService);
+    game.registry.set('modalService', this.modalService);
     game.registry.set('playerService', this.playerService);
     game.registry.set('dificultad', this.dificultad());
     game.registry.set('jugadores', this.jugadores());
@@ -189,11 +227,17 @@ export class GameComponent implements AfterViewInit, OnDestroy {
   }
 }
 
-class BoardScene extends Phaser.Scene {
+
+
+
+
+
+export class BoardScene extends Phaser.Scene {
   // ======== Inicializaciones de variables y servicios ========
   private diceBtn!: Phaser.GameObjects.Image;
   private diceService!: DiceService;
   private playerService!: PlayerService;
+  private modalService!: ModalService;
   private diceSub?: any;
   private diceText!: Phaser.GameObjects.Text;
   private continueText!: Phaser.GameObjects.Text;
@@ -212,6 +256,8 @@ class BoardScene extends Phaser.Scene {
   private playerCount = signal<number | null>(null);
   private currentPlayer = 0;
   private cellPositions: { x: number, y: number }[] = [];
+  private isModalOpen = false;
+  private modalQueue: (() => void)[] = [];
 
   constructor() {
     super({ key: 'BoardScene' });
@@ -225,6 +271,7 @@ class BoardScene extends Phaser.Scene {
   init(): void {
     this.diceService = this.game.registry.get('diceService');
     this.playerService = this.game.registry.get('playerService');
+    this.modalService = this.game.registry.get('modalService');
     this.dificultad = this.game.registry.get('dificultad');
     this.jugadores = this.game.registry.get('jugadores');
     this.cantidadDeJugadores = this.game.registry.get('cantidadDeJugadores');
@@ -244,7 +291,15 @@ class BoardScene extends Phaser.Scene {
     this.load.image('ficha6', 'assets/fichas/JAzulClaro.png');
     this.load.image('ficha7', 'assets/fichas/JVerde.png');
     this.load.image('ficha8', 'assets/fichas/JAmarillo.png');
+    this.load.image('salud', 'assets/images/pastilla.png');
+    this.load.image('vida', 'assets/images/corazon.png');
+    this.load.image('coche', 'assets/images/coche.png');
+    this.load.image('viaje', 'assets/images/avion.png');
+    this.load.image('hogar', 'assets/images/casa.png');
+    this.load.image('responsabilidad_civil', 'assets/images/escudo.png');
+    this.load.image('caja_ahorros', 'assets/images/moneda.png');
     this.load.image('dado', 'assets/images/dado.png');
+    
   }
 
   /**
@@ -432,5 +487,211 @@ class BoardScene extends Phaser.Scene {
     this.game.events.emit('updatePosition', newPosition);
 
     onDone();
+  }
+
+  mostrarSeguroModal(player: Player, seguro: seguros){
+    const scene = this; // referencia a la escena actual
+
+    this.time.paused = true; // Pausa timers/tweens
+
+    // 1. Fondo oscuro
+    const overlay = scene.add.rectangle(scene.cameras.main.centerX, scene.cameras.main.centerY, 
+      scene.cameras.main.width, scene.cameras.main.height, 0x000000, 0.7);
+    overlay.setDepth(1000).setInteractive(); ;
+
+    // 2. Rectángulo blanco centrado
+    const modalWidth = 400;
+    const modalHeight = 350;
+    let modal: Phaser.GameObjects.Rectangle;
+    switch (seguro) {
+      case 'EVENTO':
+        modal = scene.add.rectangle(scene.cameras.main.centerX, scene.cameras.main.centerY, modalWidth, modalHeight, 0xff7a00, 1);
+        break;
+      case 'PAGO_MENSUAL':
+        modal = scene.add.rectangle(scene.cameras.main.centerX, scene.cameras.main.centerY, modalWidth, modalHeight, 0xe93838, 1);
+        break;
+      case 'SUELDO':
+         modal = scene.add.rectangle(scene.cameras.main.centerX, scene.cameras.main.centerY, modalWidth, modalHeight, 0x4ce451, 1);
+        break;
+      default:
+        modal = scene.add.rectangle(scene.cameras.main.centerX, scene.cameras.main.centerY, modalWidth, modalHeight, 0xc8c4c4  , 1);
+        break;
+    }
+
+    modal.setDepth(1001);
+
+    // 3. Imagen del seguro
+    let nombreImagen = null;
+
+    switch (seguro) {
+      case 'SALUD':
+        nombreImagen = 'salud';
+        break;
+      case 'VIDA':
+        nombreImagen = 'vida';
+        break;
+      case 'COCHE':
+        nombreImagen = 'coche';
+        break;
+      case 'VIAJE':
+        nombreImagen = 'viaje';
+        break;
+      case 'HOGAR':
+        nombreImagen = 'hogar';
+        break;
+      case 'RESPONSABILIDAD_CIVIL':
+        nombreImagen ='responsabilidad_civil';
+        break;
+      case 'CAJA_AHORROS':
+        nombreImagen = 'caja_ahorros';
+        break;
+      case 'EVENTO':
+        // Si quieres mostrar imagen para EVENTO, pon la ruta aquí. Si no, déjalo como null.
+        nombreImagen = null;
+        break;
+      case 'PAGO_MENSUAL':
+      case 'SUELDO':
+        // No mostrar imagen
+        nombreImagen = null;
+        break;
+      default:
+        nombreImagen = null;
+    }
+    let img: Phaser.GameObjects.Image ;
+    // Solo añade la imagen si corresponde
+    if (nombreImagen) {
+      img = scene.add.image(scene.cameras.main.centerX, scene.cameras.main.centerY - 90, nombreImagen);
+      img.setDisplaySize(80, 80);
+      img.setDepth(1002);
+    }
+
+
+    // 4. Texto nombre y precio
+    const nombreSeguro = this.obtenerNombreSeguro(seguro); // función que devuelve el nombre
+    let precioSeguro = this.obtenerPrecioSeguro(seguro); // función que devuelve el precio
+    let texto: Phaser.GameObjects.Text;
+    if(precioSeguro){
+      texto = scene.add.text(scene.cameras.main.centerX, scene.cameras.main.centerY - 20, 
+      `${nombreSeguro}\nPrecio: ${precioSeguro}€`, 
+      { font: '20px Arial', color: '#000', align: 'center' }).setOrigin(0.5);
+    texto.setDepth(1002);
+    }else{
+      texto = scene.add.text(scene.cameras.main.centerX, scene.cameras.main.centerY - 20, 
+      `${nombreSeguro}`, 
+      { font: '20px Arial', color: '#000', align: 'center' }).setOrigin(0.5);
+    texto.setDepth(1002);}
+    
+    let btnComprar: Phaser.GameObjects.Text | null = null;
+    let btnNoComprar: Phaser.GameObjects.Text | null = null;
+    let btnSiguiente: Phaser.GameObjects.Text | null = null;
+
+    switch (seguro) {
+      case 'EVENTO':
+      case 'SUELDO':
+      case 'PAGO_MENSUAL':
+        // Solo botón "Siguiente"
+        btnSiguiente = scene.add.text(
+          scene.cameras.main.centerX,
+          scene.cameras.main.centerY + 60,
+          'Siguiente',
+          { font: '18px Arial', color: '#fff', backgroundColor: '#007bff', padding: { x: 20, y: 10 } }
+        ).setOrigin(0.5).setInteractive().setDepth(1002);
+      break;
+      default:
+        // Botón "Comprar"
+        btnComprar = scene.add.text(
+          scene.cameras.main.centerX,
+          scene.cameras.main.centerY + 60,
+          'Comprar',
+          { font: '18px Arial', color: '#fff', backgroundColor: '#28a745', padding: { x: 20, y: 10 } }
+        ).setOrigin(0.5).setInteractive().setDepth(1002);
+
+        // Botón "No comprar"
+        btnNoComprar = scene.add.text(
+          scene.cameras.main.centerX,
+          scene.cameras.main.centerY + 110,
+          'No comprar',
+          { font: '18px Arial', color: '#fff', backgroundColor: '#dc3545', padding: { x: 20, y: 10 } }
+        ).setOrigin(0.5).setInteractive().setDepth(1002);
+      break;
+    }
+
+    // 7. Acciones de los botones
+   if (btnComprar) {
+      btnComprar.on('pointerdown', () => {
+        if (precioSeguro === undefined) return;
+        if (precioSeguro == null) precioSeguro = 0;
+        player.money -= precioSeguro;
+        player.insured.push(seguro);
+        this.playerService.updatePlayer(player);
+        limpiarModal();
+      });
+    }
+
+    if (btnNoComprar) {
+      btnNoComprar.on('pointerdown', () => {
+        limpiarModal();
+      });
+    }
+
+    if (btnSiguiente) {
+      btnSiguiente.on('pointerdown', () => {
+        limpiarModal();
+      });
+    }
+
+    // 8. Función para limpiar el modal
+    const limpiarModal = () => {
+      overlay?.destroy();
+      modal?.destroy();
+      texto?.destroy();
+      btnComprar?.destroy();
+      btnNoComprar?.destroy();
+      btnSiguiente?.destroy();
+      img?.destroy();
+      this.isModalOpen = false;
+    // Atiende la siguiente solicitud en la cola, si existe
+      if (this.modalQueue.length > 0) {
+        const siguiente = this.modalQueue.shift();
+        if (siguiente)
+          siguiente();
+      }
+    };
+  }
+  async solicitarModalSeguro(player: Player, seguro: any): Promise<void> {
+    if (this.isModalOpen) {
+      await new Promise<void>(resolve => this.modalQueue.push(resolve));
+    }
+    this.isModalOpen = true;
+    this.mostrarSeguroModal(player, seguro);
+  }
+
+  // Funciones auxiliares para obtener nombre, precio e imagen
+  obtenerNombreSeguro(seguroEnum: seguros) {
+    switch (seguroEnum) {
+      case seguros.SALUD: return 'Seguro de Salud';
+      case seguros.VIDA: return 'Seguro de Vida';
+      case seguros.COCHE: return 'Seguro de Coche';
+      case seguros.VIAJE: return 'Seguro de Viaje';
+      case seguros.HOGAR: return 'Seguro de Hogar';
+      case seguros.RESPONSABILIDAD_CIVIL: return 'Seguro de Responsabilidad Civil';
+      case seguros.CAJA_AHORROS: return 'Caja de Ahorros';
+      case seguros.EVENTO: return 'Evento Aleatorio';
+      default: return 'Seguro desconocido';
+    }
+  }
+
+  obtenerPrecioSeguro(seguroEnum: seguros) {
+    switch (seguroEnum) {
+      case seguros.SALUD: return 200;
+      case seguros.VIDA: return 300;
+      case seguros.COCHE: return 400;
+      case seguros.VIAJE: return 400;
+      case seguros.HOGAR: return 500;
+      case seguros.RESPONSABILIDAD_CIVIL: return 200;
+      case seguros.CAJA_AHORROS: return 50; 
+      case seguros.EVENTO: return null;
+      default: return 0;
+    }
   }
 }

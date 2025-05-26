@@ -5,7 +5,7 @@ export interface Player {
     salary: number;           // lo que cobra al pasar por salida
     monthlyFee: number;       // lo que paga al pasar por casilla de mensualidad
     position: number;         // índice de casilla actual
-    insured: number[];        // array de índices de casillas que compró
+    insured: string[];       // array de índices de casillas que compró
     skipNextTurn?: boolean;   // flag para indicar que pierde el siguiente turno por no pagar mensualidad
   }
   

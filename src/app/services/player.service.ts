@@ -87,6 +87,17 @@ export class PlayerService {
       this.playersSubject.next(updatedPlayers); // Esto guarda en localStorage
     }
   }
+  // player.service.ts
+  updatePlayer(updatedPlayer: Player): void {
+    const players = this.playersSubject.value;
+    const idx = players.findIndex(p => p.id === updatedPlayer.id);
+    if (idx !== -1) {
+      const updatedPlayers = [...players];
+      updatedPlayers[idx] = { ...updatedPlayer };
+      this.playersSubject.next(updatedPlayers); // Esto guarda en localStorage automáticamente
+    }
+  }
+
 
   /**
    * Avanza al siguiente turno, aplicando lógica de turnos perdidos
