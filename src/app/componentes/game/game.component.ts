@@ -97,7 +97,6 @@ export class GameComponent implements AfterViewInit, OnDestroy {
       this.equipos.set(params['equipos']);
       this.cantidadDeJugadores.set(params['cantidadDeJugadores']);
       this.jugadores.set(params['jugadores']);
-
       this.validateGameParameters();
     });
   }
@@ -234,6 +233,8 @@ export class GameComponent implements AfterViewInit, OnDestroy {
 
 export class BoardScene extends Phaser.Scene {
   // ======== Inicializaciones de variables y servicios ========
+  private playerCardObjects: Phaser.GameObjects.GameObject[] = [];
+  private playersSub!: Subscription;
   private diceBtn!: Phaser.GameObjects.Image;
   private diceService!: DiceService;
   private playerService!: PlayerService;
@@ -243,6 +244,9 @@ export class BoardScene extends Phaser.Scene {
   private continueText!: Phaser.GameObjects.Text;
   private turnText!: Phaser.GameObjects.Text;
   private overlay!: Phaser.GameObjects.Rectangle;
+  private errorSub!: Subscription;
+  public errorMessage: string | null = null;
+
 
   // Configuración y estado del juego
   dificultad = signal<Dificultad | null>(null);
@@ -306,6 +310,7 @@ export class BoardScene extends Phaser.Scene {
    * Crea los elementos visuales del tablero y la interfaz de usuario.
    */
   create(): void {
+    
     const cw = this.scale.width;
     const ch = this.scale.height;
 
@@ -355,12 +360,9 @@ export class BoardScene extends Phaser.Scene {
       this.cellPositions.push({ x, y });
     }
 
-    // 5. Debug: dibuja un punto rojo en el centro de cada casilla
-    this.cellPositions.forEach((pos) =>
-      this.add.circle(pos.x, pos.y, 5, 0xff0000)
-    );
+   
 
-    // 6. Añadir fichas de jugadores a la primera casilla
+    // 5. Añadir fichas de jugadores a la primera casilla
     const players = this.playerService.getCurrentPlayers();
     for (let i = 0; i < players.length; i++) {
       const player = players[i];
@@ -373,12 +375,9 @@ export class BoardScene extends Phaser.Scene {
       this.currentIndex.push(posIndex);
     }
 
-    // 7. Texto de turno actual
-    this.turnText = this.add.text(20, 20, `Turno: ${this.currentPlayer + 1}`, {
-      fontSize: '24px', color: '#000'
-    }).setScrollFactor(0);
 
-    // 8. Texto del dado (resultado)
+
+    // 6. Texto del dado (resultado)
     const fontSize = Math.floor(this.scale.width * 0.05);
     const fontSizeNumber = Math.floor(this.scale.width * 0.1);
     this.diceText = this.add.text(
@@ -390,7 +389,7 @@ export class BoardScene extends Phaser.Scene {
       .setVisible(false)
       .setDepth(11);
 
-    // 9. Texto de “Haz clic para continuar”
+    // 7. Texto de “Haz clic para continuar”
     this.continueText = this.add.text(
       this.scale.width / 2,
       this.scale.height / 2 + 100,
@@ -400,7 +399,7 @@ export class BoardScene extends Phaser.Scene {
       .setVisible(false)
       .setDepth(11);
 
-    // 10. Botón de dado
+    // 8. Botón de dado
     const diceX = topLeftX + 1.7 * cellW;
     const diceY = topLeftY + 2.9 * cellH + cellH / 2;
     this.diceBtn = this.add.image(diceX, diceY, 'dado')
@@ -408,6 +407,16 @@ export class BoardScene extends Phaser.Scene {
       .setInteractive()
       .setScrollFactor(0)
       .on('pointerdown', () => this.onDicePressed());
+
+      this.playersSub = this.playerService.players$.subscribe(players => {
+        this.clearPlayerCards();
+        this.drawPlayerCards();
+      });
+      this.errorSub = this.modalService.error$.subscribe((message: string) => {
+        this.errorMessage = message;
+        this.showErrorModalPhaser(message);
+      });
+      
   }
 
   // ======== Métodos de lógica principal ========
@@ -415,6 +424,102 @@ export class BoardScene extends Phaser.Scene {
   /**
    * Lógica al pulsar el botón del dado: lanza el dado y gestiona la animación y el turno.
    */
+
+  private drawPlayerCards(): void {
+    const cw = this.scale.width;
+    const ch = this.scale.height;
+    const rightMargin = 10;
+    const areaWidth = cw * 0.25 - rightMargin;
+    const cardMargin = 20;
+    const cardSpacing = 5;
+    const cellGap = 8;
+    const cardPadding = 12;
+    const cellRadius = 14;
+    const players = this.playerService.getCurrentPlayers();
+    const cardHeight = Math.min(120, (ch - cardMargin * 2 - cardSpacing * (players.length - 1)) / players.length);
+    const cardWidth = areaWidth - cardMargin * 2;
+  
+    const cardBgColors = [
+      0xff8203, 0xfe2b7c, 0xe18dc7, 0x6f2495,
+      0x006b9a, 0x00c0fa, 0x008822, 0xcdad00
+    ];
+  
+    players.forEach((player, i) => {
+      const x = cardMargin;
+      const y = cardMargin + i * (cardHeight + cardSpacing);
+  
+      // Fondo de tarjeta
+      const cardGraphics = this.add.graphics();
+      cardGraphics.fillStyle(cardBgColors[i % cardBgColors.length], 0.7);
+      cardGraphics.fillRoundedRect(x, y, cardWidth, cardHeight, cellRadius);
+      this.playerCardObjects.push(cardGraphics);
+  
+      // Área interna
+      const innerX = x + cardPadding;
+      const innerY = y + cardPadding;
+      const innerWidth = cardWidth - 2 * cardPadding;
+      const innerHeight = cardHeight - 2 * cardPadding;
+  
+      // Celdas
+      const cellW = (innerWidth - cellGap) / 2;
+      const cellH = (innerHeight - cellGap) / 2;
+  
+      // Nombre
+      const nombreText = this.add.text(
+        innerX + cellW / 2, innerY + cellH / 2,
+        player.name,
+        { font: 'bold 17px Arial', color: '#000', align: 'center' }
+      ).setOrigin(0.5);
+      this.playerCardObjects.push(nombreText);
+  
+      // Dinero
+      const dineroGraphics = this.add.graphics();
+      dineroGraphics.fillStyle(0xffffff, 0.5);
+      dineroGraphics.fillRoundedRect(innerX, innerY + cellH + cellGap, cellW, cellH, cellRadius / 2);
+      this.playerCardObjects.push(dineroGraphics);
+      
+      const dineroText = this.add.text(
+        innerX + cellW / 2, innerY + cellH + cellGap + cellH / 2,
+        `${player.money}€`,
+        { font: '16px Arial', color: '#000', align: 'center' }
+      ).setOrigin(0.5);
+      this.playerCardObjects.push(dineroText);
+  
+      // Sueldo
+      const sueldoGraphics = this.add.graphics();
+      sueldoGraphics.fillStyle(0x4ce451, 0.85);
+      sueldoGraphics.fillRoundedRect(innerX + cellW + cellGap, innerY, cellW, cellH, cellRadius / 2);
+      this.playerCardObjects.push(sueldoGraphics);
+      
+      const sueldoText = this.add.text(
+        innerX + cellW + cellGap + cellW / 2, innerY + cellH / 2,
+        `${player.salary}€`,
+        { font: '16px Arial', color: '#000', align: 'center' }
+      ).setOrigin(0.5);
+      this.playerCardObjects.push(sueldoText);
+  
+      // Pago mensual
+      const pagoGraphics = this.add.graphics();
+      pagoGraphics.fillStyle(0xe93838);
+      pagoGraphics.fillRoundedRect(innerX + cellW + cellGap, innerY + cellH + cellGap, cellW, cellH, cellRadius / 2);
+      this.playerCardObjects.push(pagoGraphics);
+      
+      const pagoText = this.add.text(
+        innerX + cellW + cellGap + cellW / 2, innerY + cellH + cellGap + cellH / 2,
+        `${player.monthlyFee}€`,
+        { font: '16px Arial', color: '#000', align: 'center' }
+      ).setOrigin(0.5);
+      this.playerCardObjects.push(pagoText);
+    });
+  }
+
+  private clearPlayerCards(): void {
+    this.playerCardObjects.forEach(obj => obj.destroy());
+    this.playerCardObjects = [];
+  }
+  
+  
+  
   private onDicePressed() {
     this.diceBtn.disableInteractive();
     this.overlay.setVisible(true);
@@ -443,7 +548,6 @@ export class BoardScene extends Phaser.Scene {
           this.continueText.setVisible(false);
           this.moveToken(n, () => {
             this.diceBtn.setInteractive();
-            this.turnText.setText(`Turno: Jugador ${this.currentPlayer + 1}`);
           });
         });
       }
@@ -485,6 +589,7 @@ export class BoardScene extends Phaser.Scene {
     this.currentPlayer = (this.currentPlayer + 1) % this.cantidadDeJugadores;
 
     this.game.events.emit('updatePosition', newPosition);
+
 
     onDone();
   }
@@ -621,6 +726,10 @@ export class BoardScene extends Phaser.Scene {
       btnComprar.on('pointerdown', () => {
         if (precioSeguro === undefined) return;
         if (precioSeguro == null) precioSeguro = 0;
+        if (player.money < precioSeguro) {
+          scene.modalService.showErrorModal('No tienes suficiente dinero para comprar este seguro.');
+          return;
+        }
         player.money -= precioSeguro;
         player.insured.push(seguro);
         this.playerService.updatePlayer(player);
@@ -665,7 +774,53 @@ export class BoardScene extends Phaser.Scene {
     this.isModalOpen = true;
     this.mostrarSeguroModal(player, seguro);
   }
-
+  private showErrorModalPhaser(message: string) {
+    const width = this.scale.width;
+    const height = this.scale.height;
+  
+    // 1. Capa interactiva transparente para bloquear clics debajo del error
+    const blocker = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.001)
+      .setOrigin(0.5)
+      .setInteractive()
+      .setDepth(19999);
+  
+    // 2. Fondo del mensaje de error 
+    const bgHeight = 180; 
+    const bg = this.add.rectangle(width / 2, height / 2, width * 0.5, bgHeight, 0x000000)
+      .setOrigin(0.5)
+      .setDepth(20000);
+  
+    // 3. Texto del mensaje de error
+    const text = this.add.text(width / 2, height / 2 - 30, message, {
+      font: '20px Arial',
+      color: '#fff',
+      align: 'center',
+      wordWrap: { width: width * 0.45 }
+    }).setOrigin(0.5)
+      .setDepth(20001);
+  
+    // 4. Botón "Aceptar" con padding y separado del borde inferior
+    const btn = this.add.text(width / 2, height / 2 + 50, 'Aceptar', {
+      font: '18px Arial',
+      color: '#000',
+      backgroundColor: '#fff',
+      align: 'center'
+    })
+      .setOrigin(0.5)
+      .setInteractive()
+      .setDepth(20002)
+      .setPadding({ left: 32, right: 32, top: 10, bottom: 10 }); // Padding para que no toque el borde[9]
+  
+    btn.on('pointerdown', () => {
+      blocker.destroy();
+      bg.destroy();
+      text.destroy();
+      btn.destroy();
+    });
+  }
+  
+  
+  
   // Funciones auxiliares para obtener nombre, precio e imagen
   obtenerNombreSeguro(seguroEnum: seguros) {
     switch (seguroEnum) {
@@ -694,4 +849,10 @@ export class BoardScene extends Phaser.Scene {
       default: return 0;
     }
   }
+
+  shutdown() {
+    this.playersSub?.unsubscribe();
+    this.errorSub?.unsubscribe();
+  }
+
 }

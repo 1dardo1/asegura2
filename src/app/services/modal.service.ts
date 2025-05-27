@@ -1,4 +1,4 @@
-// modal.service.ts
+// En modal.service.ts
 import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
 
@@ -7,9 +7,17 @@ export class ModalService {
   private seguroSubject = new Subject<{ player: any, seguro: any }>();
   seguro$ = this.seguroSubject.asObservable();
 
-  solicitarSeguro(player: any, seguro: any) {
-    console.log(player,"___", seguro)
-    this.seguroSubject.next({ player, seguro });
+  // 1. Inicializa correctamente el Subject para errores
+  private errorSubject = new Subject<string>();
+  error$ = this.errorSubject.asObservable();
 
+  solicitarSeguro(player: any, seguro: any) {
+    console.log(player,"___", seguro);
+    this.seguroSubject.next({ player, seguro });
+  } // <-- 2. Asegúrate de cerrar el método correctamente
+
+  // 3. Método para errores
+  showErrorModal(message: string) {
+    this.errorSubject.next(message); // Ahora errorSubject está definido
   }
 }
