@@ -64,7 +64,7 @@ export class GameComponent implements AfterViewInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private diceService = inject(DiceService);
   private playerService = inject(PlayerService);
-  private eventosService = inject(EventoService);
+  private eventoService = inject(EventoService);
   private casillasService = inject(CasillasService);
   private modalService = inject(ModalService);
   
@@ -159,7 +159,7 @@ export class GameComponent implements AfterViewInit, OnDestroy {
     game.registry.set('diceService', this.diceService);
     game.registry.set('modalService', this.modalService);
     game.registry.set('playerService', this.playerService);
-    game.registry.set('eventosService', this.eventosService);
+    game.registry.set('eventoService', this.eventoService);
     game.registry.set('dificultad', this.dificultad());
     game.registry.set('jugadores', this.jugadores());
     game.registry.set('equipos', this.equipos());
@@ -243,7 +243,7 @@ export class BoardScene extends Phaser.Scene {
   private diceBtn!: Phaser.GameObjects.Image;
   private diceService!: DiceService;
   private playerService!: PlayerService;
-  private eventosService!: EventoService;
+  private eventoService!: EventoService;
   private modalService!: ModalService;
   private diceSub?: any;
   private diceText!: Phaser.GameObjects.Text;
@@ -281,7 +281,7 @@ export class BoardScene extends Phaser.Scene {
   init(): void {
     this.diceService = this.game.registry.get('diceService');
     this.playerService = this.game.registry.get('playerService');
-    this.eventosService = this.game.registry.get('EventosService');
+    this.eventoService = this.game.registry.get('eventoService');
     this.modalService = this.game.registry.get('modalService');
     this.dificultad = this.game.registry.get('dificultad');
     this.jugadores = this.game.registry.get('jugadores');
@@ -420,11 +420,13 @@ export class BoardScene extends Phaser.Scene {
         this.clearPlayerCards();
         this.drawPlayerCards();
       });
-      this.errorSub = this.modalService.error$.subscribe((message: string) => {
-        this.errorMessage = message;
-        this.showErrorModalPhaser(message);
-      });
-      
+      this.errorSub = this.modalService.error$.subscribe(
+        ({ message, type }) => {
+          this.errorMessage = message;
+          this.showErrorModalPhaser(message, type);
+        }
+      );
+      this.eventoService.inicializarEventos();
   }
 
   // ======== Métodos de lógica principal ========
@@ -596,10 +598,12 @@ export class BoardScene extends Phaser.Scene {
     this.game.events.emit('updatePosition', newPosition);
     onDone();
   }
+
   mostrarSeguroModal(player: Player, seguro: seguros){
     const scene = this; // referencia a la escena actual
-    let flag= false;
-
+    let flag1= false;
+    let flag2= false;
+    const evento = this.eventoService.getEventoAleatorio();
     this.time.paused = true; // Pausa timers/tweens
 
     // 1. Fondo oscuro
@@ -613,16 +617,16 @@ export class BoardScene extends Phaser.Scene {
     let modal: Phaser.GameObjects.Rectangle;
     switch (seguro) {
       case 'EVENTO':
-        modal = scene.add.rectangle(scene.cameras.main.centerX, scene.cameras.main.centerY, modalWidth, modalHeight, 0xff7a00, 1);
+        modal = scene.add.rectangle(scene.cameras.main.centerX, scene.cameras.main.centerY, modalWidth, modalHeight, 0xff7a00, 1).setInteractive();
         break;
       case 'PAGO_MENSUAL':
-        modal = scene.add.rectangle(scene.cameras.main.centerX, scene.cameras.main.centerY, modalWidth, modalHeight, 0xe93838, 1);
+        modal = scene.add.rectangle(scene.cameras.main.centerX, scene.cameras.main.centerY, modalWidth, modalHeight, 0xe93838, 1).setInteractive();
         break;
       case 'SUELDO':
-         modal = scene.add.rectangle(scene.cameras.main.centerX, scene.cameras.main.centerY, modalWidth, modalHeight, 0x4ce451, 1);
+         modal = scene.add.rectangle(scene.cameras.main.centerX, scene.cameras.main.centerY, modalWidth, modalHeight, 0x4ce451, 1).setInteractive();
         break;
       default:
-        modal = scene.add.rectangle(scene.cameras.main.centerX, scene.cameras.main.centerY, modalWidth, modalHeight, 0xc8c4c4  , 1);
+        modal = scene.add.rectangle(scene.cameras.main.centerX, scene.cameras.main.centerY, modalWidth, modalHeight, 0xc8c4c4  , 1).setInteractive();
         break;
     }
 
@@ -639,10 +643,11 @@ export class BoardScene extends Phaser.Scene {
       case 'HOGAR':
       case 'RESPONSABILIDAD_CIVIL':
       case 'CAJA_AHORROS':
-        nombreImagen =seguro.toLocaleLowerCase();
+        nombreImagen =seguro.toLowerCase();
         break
       case 'EVENTO':
-         switch (this.eventosService.eventos[1].tipo) {
+        console.log(evento)
+         switch (evento.tipo) {
           case 'SALUD':
           case 'VIDA':
           case 'COCHE':
@@ -650,9 +655,10 @@ export class BoardScene extends Phaser.Scene {
           case 'HOGAR':
           case 'RESPONSABILIDAD_CIVIL':
           case 'CAJA_AHORROS':
-            nombreImagen =this.eventosService.eventos[1].tipo.toLocaleLowerCase();
+            nombreImagen =evento.tipo.toLowerCase();
             break
           default:
+            nombreImagen=null;
             break
         }
         break;
@@ -677,17 +683,27 @@ export class BoardScene extends Phaser.Scene {
     const nombreSeguro = this.obtenerNombreSeguro(seguro); // función que devuelve el nombre
     let precioSeguro = this.obtenerPrecioSeguro(seguro); // función que devuelve el precio
     let texto: Phaser.GameObjects.Text;
-    if(precioSeguro){
+    if(precioSeguro ){
       texto = scene.add.text(scene.cameras.main.centerX, scene.cameras.main.centerY - 20, 
       `${nombreSeguro}\nPrecio: ${precioSeguro}€`, 
-      { font: '20px Arial', color: '#000', align: 'center' }).setOrigin(0.5);
+      { font: '20px Arial', color: '#000', align: 'center',
+      wordWrap: { width: modalWidth - 40 }}).setOrigin(0.5);
     texto.setDepth(1002);
     }else{
-      texto = scene.add.text(scene.cameras.main.centerX, scene.cameras.main.centerY - 20, 
-      `${nombreSeguro}`, 
-      { font: '20px Arial', color: '#000', align: 'center' }).setOrigin(0.5);
-    texto.setDepth(1002);}
-    
+      if(nombreSeguro=='Evento'){
+        texto = scene.add.text(scene.cameras.main.centerX, scene.cameras.main.centerY - 20, 
+        `${evento.texto}`, 
+        { font: '20px Arial', color: '#000', align: 'center',
+        wordWrap: { width: modalWidth - 40 }}).setOrigin(0.5);
+      texto.setDepth(1002);
+      }else{
+        texto = scene.add.text(scene.cameras.main.centerX, scene.cameras.main.centerY - 20, 
+        `${nombreSeguro}`, 
+        { font: '20px Arial', color: '#000', align: 'center',
+        wordWrap: { width: modalWidth - 40 }}).setOrigin(0.5);
+      texto.setDepth(1002);
+      }
+    }
     let btnComprar: Phaser.GameObjects.Text | null = null;
     let btnNoComprar: Phaser.GameObjects.Text | null = null;
     let btnSiguiente: Phaser.GameObjects.Text | null = null;
@@ -727,7 +743,7 @@ export class BoardScene extends Phaser.Scene {
       btnComprar.on('pointerdown', () => {
         if (precioSeguro === undefined) return;
         if (precioSeguro == null) precioSeguro = 0;
-        if (player.money < precioSeguro) {
+        if (player.money <= precioSeguro) {
           scene.modalService.showErrorModal('No tienes suficiente dinero para comprar este seguro.');
           return;
         }
@@ -743,35 +759,51 @@ export class BoardScene extends Phaser.Scene {
       });
     }
     if (btnSiguiente) {
-      switch (seguro) {
-        case 'EVENTO':
-          break
-        case 'SUELDO':
-          player.money += player.salary;
-          this.playerService.updatePlayer(player);
-          break
-        case 'PAGO_MENSUAL':
-          if (player.money < player.rent && flag==false) {
-            flag = true;
-            player.skipNextTurn = true;
-            console.log("player.skipNextTurn = true;")
-            player.position=0;
-            this.playerService.updatePlayer(player); 
-            scene.modalService.showErrorModal('No tienes suficiente dinero para pagar este mes.\nPierdes un turno');
-          break
-          }else{
-          player.money -= player.rent;
-          this.playerService.updatePlayer(player);
-          break
-          }
-
-        default:
-          break
-      }
       btnSiguiente.on('pointerdown', () => {
+        switch (seguro) {
+          case 'EVENTO':
+            const resultado = this.eventoService.aplicarEvento(evento,player);
+            if (!resultado.aplicado && !flag1) {
+              flag1 = true;
+              player.skipNextTurn = true;
+              scene.modalService.showErrorModal(
+                `No tienes suficiente dinero para cubrir este evento.\nPierdes un turno`
+              );
+              return;
+            }
+            
+            if (resultado.descuentoAplicado) {
+              scene.modalService.showErrorModal(
+                `¡Descuento aplicado! Has ahorrado ${evento.cantidad - resultado.cantidadFinal}€`,
+                'info' // Añade un tipo para diferenciar mensajes
+              );
+            }
+            break;
+
+          case 'PAGO_MENSUAL':
+            if (player.money <= player.rent && !flag2) {
+              flag2 = true;
+              player.skipNextTurn = true;
+              player.position = 0;
+              player.money = 0;
+              this.playerService.updatePlayer(player);
+              scene.modalService.showErrorModal('No tienes suficiente dinero para pagar este mes.\nPierdes un turno');
+              break;
+            }
+            player.money -= player.rent;
+            this.playerService.updatePlayer(player);
+            break;
+
+          case 'SUELDO':
+            player.money += player.salary;
+            this.playerService.updatePlayer(player);
+            break;
+        }
+        
         limpiarModal();
       });
     }
+
 
     // 8. Función para limpiar el modal
     const limpiarModal = () => {
@@ -791,6 +823,7 @@ export class BoardScene extends Phaser.Scene {
       }
     };
   }
+
   async solicitarModalSeguro(player: Player, seguro: any): Promise<void> {
     if (this.isModalOpen) {
       await new Promise<void>(resolve => this.modalQueue.push(resolve));
@@ -801,7 +834,9 @@ export class BoardScene extends Phaser.Scene {
 
 private errorModalGroup?: Phaser.GameObjects.Group;
 
-private showErrorModalPhaser(message: string) {
+private showErrorModalPhaser(message: string, type: 'error' | 'info' = 'error'){
+  const bgColor = type === 'error' ? 0x2b2b2b : 0xc8c4c4;
+  const textColor = type === 'error' ? '#fff' : '#000';
   if (this.errorModalGroup) return;
 
   const width = this.scale.width;
@@ -819,7 +854,7 @@ private showErrorModalPhaser(message: string) {
 
   // 2. Fondo del mensaje de error 
   const bgHeight = 180;
-  const bg = this.add.rectangle(width / 2, height / 2, width * 0.5, bgHeight, 0x000000)
+  const bg = this.add.rectangle(width / 2, height / 2, width * 0.5, bgHeight, bgColor)
     .setOrigin(0.5)
     .setDepth(20000);
   this.errorModalGroup.add(bg);
@@ -827,7 +862,7 @@ private showErrorModalPhaser(message: string) {
   // 3. Texto del mensaje de error
   const text = this.add.text(width / 2, height / 2 - 30, message, {
     font: '20px Arial',
-    color: '#fff',
+    color: textColor ,
     align: 'center',
     wordWrap: { width: width * 0.45 }
   }).setOrigin(0.5)
@@ -863,7 +898,7 @@ private showErrorModalPhaser(message: string) {
       case seguros.HOGAR: return 'Seguro de Hogar';
       case seguros.RESPONSABILIDAD_CIVIL: return 'Seguro de Responsabilidad Civil';
       case seguros.CAJA_AHORROS: return 'Caja de Ahorros';
-      case seguros.EVENTO: return 'Evento Aleatorio';
+      case seguros.EVENTO: return 'Evento';
       default: return 'Seguro desconocido';
     }
   }

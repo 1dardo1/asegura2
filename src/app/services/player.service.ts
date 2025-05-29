@@ -50,7 +50,7 @@ export class PlayerService {
       const players = names.map((name, index) => ({
         id: index + 1,
         name,
-        money: 0, // Dinero inicial
+        money: 1000, // Dinero inicial
         salary: 200, // Salario por vuelta completa
         rent: 100, // Cuota mensual (no usado en la versión actual)
         position: 11, // Casilla inicial

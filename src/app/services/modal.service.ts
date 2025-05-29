@@ -8,7 +8,7 @@ export class ModalService {
   seguro$ = this.seguroSubject.asObservable();
 
   // 1. Inicializa correctamente el Subject para errores
-  private errorSubject = new Subject<string>();
+  private errorSubject = new Subject<{ message: string, type: 'error' | 'info' }>();
   error$ = this.errorSubject.asObservable();
 
   solicitarSeguro(player: any, seguro: any) {
@@ -17,7 +17,8 @@ export class ModalService {
   } // <-- 2. Asegúrate de cerrar el método correctamente
 
   // 3. Método para errores
-  showErrorModal(message: string) {
-    this.errorSubject.next(message); // Ahora errorSubject está definido
+
+  showErrorModal(message: string, type: 'error' | 'info' = 'error') {
+    this.errorSubject.next({ message, type });
   }
 }

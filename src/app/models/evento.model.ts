@@ -1,3 +1,4 @@
+
 export enum TipoSeguro {
     SALUD = "SALUD",
     VIDA = "VIDA",
