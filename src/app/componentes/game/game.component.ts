@@ -16,6 +16,7 @@ import { Subscription } from 'rxjs';
 import Phaser from 'phaser';
 import { DiceService } from '../../services/dice.service';
 import { PlayerService } from '../../services/player.service';
+import { EventoService } from '../../services/eventos.service';
 import { CasillasService } from '../../services/casillas.service';
 import { Player } from '../../models/player.model';
 import { ModalService } from '../../services/modal.service';
@@ -63,6 +64,7 @@ export class GameComponent implements AfterViewInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private diceService = inject(DiceService);
   private playerService = inject(PlayerService);
+  private eventosService = inject(EventoService);
   private casillasService = inject(CasillasService);
   private modalService = inject(ModalService);
   
@@ -157,6 +159,7 @@ export class GameComponent implements AfterViewInit, OnDestroy {
     game.registry.set('diceService', this.diceService);
     game.registry.set('modalService', this.modalService);
     game.registry.set('playerService', this.playerService);
+    game.registry.set('eventosService', this.eventosService);
     game.registry.set('dificultad', this.dificultad());
     game.registry.set('jugadores', this.jugadores());
     game.registry.set('equipos', this.equipos());
@@ -187,7 +190,9 @@ export class GameComponent implements AfterViewInit, OnDestroy {
     });
 
     this.diceService.result$.subscribe(result => {
-      if (!this.currentPlayer.skipNextTurn) this.movePlayer(result);
+
+        if (!this.currentPlayer.skipNextTurn) this.movePlayer(result);
+    
     });
   }
 
@@ -238,6 +243,7 @@ export class BoardScene extends Phaser.Scene {
   private diceBtn!: Phaser.GameObjects.Image;
   private diceService!: DiceService;
   private playerService!: PlayerService;
+  private eventosService!: EventoService;
   private modalService!: ModalService;
   private diceSub?: any;
   private diceText!: Phaser.GameObjects.Text;
@@ -275,6 +281,7 @@ export class BoardScene extends Phaser.Scene {
   init(): void {
     this.diceService = this.game.registry.get('diceService');
     this.playerService = this.game.registry.get('playerService');
+    this.eventosService = this.game.registry.get('EventosService');
     this.modalService = this.game.registry.get('modalService');
     this.dificultad = this.game.registry.get('dificultad');
     this.jugadores = this.game.registry.get('jugadores');
@@ -302,6 +309,7 @@ export class BoardScene extends Phaser.Scene {
     this.load.image('hogar', 'assets/images/casa.png');
     this.load.image('responsabilidad_civil', 'assets/images/escudo.png');
     this.load.image('caja_ahorros', 'assets/images/moneda.png');
+    this.load.image('evento', 'assets/images/interrogacion.png');
     this.load.image('dado', 'assets/images/dado.png');
     
   }
@@ -506,7 +514,7 @@ export class BoardScene extends Phaser.Scene {
       
       const pagoText = this.add.text(
         innerX + cellW + cellGap + cellW / 2, innerY + cellH + cellGap + cellH / 2,
-        `${player.monthlyFee}€`,
+        `${player.rent}€`,
         { font: '16px Arial', color: '#000', align: 'center' }
       ).setOrigin(0.5);
       this.playerCardObjects.push(pagoText);
@@ -518,9 +526,8 @@ export class BoardScene extends Phaser.Scene {
     this.playerCardObjects = [];
   }
   
-  
-  
   private onDicePressed() {
+    
     this.diceBtn.disableInteractive();
     this.overlay.setVisible(true);
     this.diceText.setVisible(true);
@@ -546,9 +553,10 @@ export class BoardScene extends Phaser.Scene {
           this.overlay.setVisible(false);
           this.diceText.setVisible(false);
           this.continueText.setVisible(false);
-          this.moveToken(n, () => {
-            this.diceBtn.setInteractive();
-          });
+          const jugadorActual = this.playerService.currentPlayer;
+          this.moveToken(jugadorActual, n, () => {
+          this.diceBtn.setInteractive();
+          })
         });
       }
     });
@@ -559,10 +567,10 @@ export class BoardScene extends Phaser.Scene {
    * @param steps Número de casillas a mover
    * @param onDone Callback al terminar la animación
    */
-  private async moveToken(steps: number, onDone: () => void) {
+  private async moveToken(jugadorActual: Player, steps: number, onDone: () => void) {
     const total = this.cellPositions.length;
-    const from = this.currentIndex[this.currentPlayer];
-    const target = this.tokens[this.currentPlayer];
+    const from = this.currentIndex[this.playerService.currentPlayerIndex];
+    const target = this.tokens[this.playerService.currentPlayerIndex];
 
     for (let i = 1; i <= steps; i++) {
       const nextIndex = (from + i) % total;
@@ -571,7 +579,6 @@ export class BoardScene extends Phaser.Scene {
       if (nextIndex === 11 || nextIndex === 0) {
         this.game.events.emit('passingPosition', nextIndex);
       }
-
       const pos = this.cellPositions[nextIndex];
       await new Promise<void>(res => {
         this.tweens.add({
@@ -583,19 +590,15 @@ export class BoardScene extends Phaser.Scene {
         });
       });
     }
-
     this.currentIndex[this.currentPlayer] = (from + steps) % total;
     const newPosition = this.currentIndex[this.currentPlayer];
     this.currentPlayer = (this.currentPlayer + 1) % this.cantidadDeJugadores;
-
     this.game.events.emit('updatePosition', newPosition);
-
-
     onDone();
   }
-
   mostrarSeguroModal(player: Player, seguro: seguros){
     const scene = this; // referencia a la escena actual
+    let flag= false;
 
     this.time.paused = true; // Pausa timers/tweens
 
@@ -604,7 +607,7 @@ export class BoardScene extends Phaser.Scene {
       scene.cameras.main.width, scene.cameras.main.height, 0x000000, 0.7);
     overlay.setDepth(1000).setInteractive(); ;
 
-    // 2. Rectángulo blanco centrado
+    // 2. Rectángulo centrado
     const modalWidth = 400;
     const modalHeight = 350;
     let modal: Phaser.GameObjects.Rectangle;
@@ -630,29 +633,28 @@ export class BoardScene extends Phaser.Scene {
 
     switch (seguro) {
       case 'SALUD':
-        nombreImagen = 'salud';
-        break;
       case 'VIDA':
-        nombreImagen = 'vida';
-        break;
       case 'COCHE':
-        nombreImagen = 'coche';
-        break;
       case 'VIAJE':
-        nombreImagen = 'viaje';
-        break;
       case 'HOGAR':
-        nombreImagen = 'hogar';
-        break;
       case 'RESPONSABILIDAD_CIVIL':
-        nombreImagen ='responsabilidad_civil';
-        break;
       case 'CAJA_AHORROS':
-        nombreImagen = 'caja_ahorros';
-        break;
+        nombreImagen =seguro.toLocaleLowerCase();
+        break
       case 'EVENTO':
-        // Si quieres mostrar imagen para EVENTO, pon la ruta aquí. Si no, déjalo como null.
-        nombreImagen = null;
+         switch (this.eventosService.eventos[1].tipo) {
+          case 'SALUD':
+          case 'VIDA':
+          case 'COCHE':
+          case 'VIAJE':
+          case 'HOGAR':
+          case 'RESPONSABILIDAD_CIVIL':
+          case 'CAJA_AHORROS':
+            nombreImagen =this.eventosService.eventos[1].tipo.toLocaleLowerCase();
+            break
+          default:
+            break
+        }
         break;
       case 'PAGO_MENSUAL':
       case 'SUELDO':
@@ -720,7 +722,6 @@ export class BoardScene extends Phaser.Scene {
         ).setOrigin(0.5).setInteractive().setDepth(1002);
       break;
     }
-
     // 7. Acciones de los botones
    if (btnComprar) {
       btnComprar.on('pointerdown', () => {
@@ -736,14 +737,37 @@ export class BoardScene extends Phaser.Scene {
         limpiarModal();
       });
     }
-
     if (btnNoComprar) {
       btnNoComprar.on('pointerdown', () => {
         limpiarModal();
       });
     }
-
     if (btnSiguiente) {
+      switch (seguro) {
+        case 'EVENTO':
+          break
+        case 'SUELDO':
+          player.money += player.salary;
+          this.playerService.updatePlayer(player);
+          break
+        case 'PAGO_MENSUAL':
+          if (player.money < player.rent && flag==false) {
+            flag = true;
+            player.skipNextTurn = true;
+            console.log("player.skipNextTurn = true;")
+            player.position=0;
+            this.playerService.updatePlayer(player); 
+            scene.modalService.showErrorModal('No tienes suficiente dinero para pagar este mes.\nPierdes un turno');
+          break
+          }else{
+          player.money -= player.rent;
+          this.playerService.updatePlayer(player);
+          break
+          }
+
+        default:
+          break
+      }
       btnSiguiente.on('pointerdown', () => {
         limpiarModal();
       });
@@ -774,53 +798,61 @@ export class BoardScene extends Phaser.Scene {
     this.isModalOpen = true;
     this.mostrarSeguroModal(player, seguro);
   }
-  private showErrorModalPhaser(message: string) {
-    const width = this.scale.width;
-    const height = this.scale.height;
-  
-    // 1. Capa interactiva transparente para bloquear clics debajo del error
-    const blocker = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.001)
-      .setOrigin(0.5)
-      .setInteractive()
-      .setDepth(19999);
-  
-    // 2. Fondo del mensaje de error 
-    const bgHeight = 180; 
-    const bg = this.add.rectangle(width / 2, height / 2, width * 0.5, bgHeight, 0x000000)
-      .setOrigin(0.5)
-      .setDepth(20000);
-  
-    // 3. Texto del mensaje de error
-    const text = this.add.text(width / 2, height / 2 - 30, message, {
-      font: '20px Arial',
-      color: '#fff',
-      align: 'center',
-      wordWrap: { width: width * 0.45 }
-    }).setOrigin(0.5)
-      .setDepth(20001);
-  
-    // 4. Botón "Aceptar" con padding y separado del borde inferior
-    const btn = this.add.text(width / 2, height / 2 + 50, 'Aceptar', {
-      font: '18px Arial',
-      color: '#000',
-      backgroundColor: '#fff',
-      align: 'center'
-    })
-      .setOrigin(0.5)
-      .setInteractive()
-      .setDepth(20002)
-      .setPadding({ left: 32, right: 32, top: 10, bottom: 10 }); // Padding para que no toque el borde[9]
-  
-    btn.on('pointerdown', () => {
-      blocker.destroy();
-      bg.destroy();
-      text.destroy();
-      btn.destroy();
-    });
-  }
-  
-  
-  
+
+private errorModalGroup?: Phaser.GameObjects.Group;
+
+private showErrorModalPhaser(message: string) {
+  if (this.errorModalGroup) return;
+
+  const width = this.scale.width;
+  const height = this.scale.height;
+
+  // INICIALIZA EL GRUPO AQUÍ
+  this.errorModalGroup = this.add.group();
+
+  // 1. Capa interactiva transparente para bloquear clics debajo del error
+  const blocker = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.001)
+    .setOrigin(0.5)
+    .setInteractive()
+    .setDepth(19999);
+  this.errorModalGroup.add(blocker);
+
+  // 2. Fondo del mensaje de error 
+  const bgHeight = 180;
+  const bg = this.add.rectangle(width / 2, height / 2, width * 0.5, bgHeight, 0x000000)
+    .setOrigin(0.5)
+    .setDepth(20000);
+  this.errorModalGroup.add(bg);
+
+  // 3. Texto del mensaje de error
+  const text = this.add.text(width / 2, height / 2 - 30, message, {
+    font: '20px Arial',
+    color: '#fff',
+    align: 'center',
+    wordWrap: { width: width * 0.45 }
+  }).setOrigin(0.5)
+    .setDepth(20001);
+  this.errorModalGroup.add(text);
+
+  // 4. Botón "Aceptar" con padding y separado del borde inferior
+  const btn = this.add.text(width / 2, height / 2 + 50, 'Aceptar', {
+    font: '18px Arial',
+    color: '#000',
+    backgroundColor: '#fff',
+    align: 'center'
+  })
+    .setOrigin(0.5)
+    .setInteractive()
+    .setDepth(20002)
+    .setPadding({ left: 32, right: 32, top: 10, bottom: 10 });
+  this.errorModalGroup.add(btn);
+
+  btn.on('pointerdown', () => {
+    this.errorModalGroup?.clear(true, true); // Destruye todos los objetos del grupo
+    this.errorModalGroup = undefined;
+  });
+}
+
   // Funciones auxiliares para obtener nombre, precio e imagen
   obtenerNombreSeguro(seguroEnum: seguros) {
     switch (seguroEnum) {

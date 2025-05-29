@@ -12,11 +12,11 @@ import { Player } from '../models/player.model';
 export class PlayerService {
   // ======== Inicializaciones ========
   /** Almacena y emite el estado actual de todos los jugadores (privado) */
-  private playersSubject = new BehaviorSubject<Player[]>([]);
+  public playersSubject = new BehaviorSubject<Player[]>([]);
   /** Observable público para suscribirse a cambios de jugadores */
   public players$ = this.playersSubject.asObservable();
   /** Índice del jugador actual en el array */
-  private currentPlayerIndex = 0;
+  public currentPlayerIndex = 0;
 
   // ======== Constructor ========
   constructor() {
@@ -50,9 +50,9 @@ export class PlayerService {
       const players = names.map((name, index) => ({
         id: index + 1,
         name,
-        money: 1000, // Dinero inicial
+        money: 0, // Dinero inicial
         salary: 200, // Salario por vuelta completa
-        monthlyFee: 100, // Cuota mensual (no usado en la versión actual)
+        rent: 100, // Cuota mensual (no usado en la versión actual)
         position: 11, // Casilla inicial
         insured: [], // Propiedades aseguradas (no usado en la versión actual)
         skipNextTurn: false, // Control de turnos perdidos
@@ -103,23 +103,13 @@ export class PlayerService {
    * Avanza al siguiente turno, aplicando lógica de turnos perdidos
    */
   nextTurn(): void {
+    this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.playersSubject.value.length;
+    console.log(this.currentPlayer)
     if (this.currentPlayer.skipNextTurn) {
       this.currentPlayer.skipNextTurn = false;
-      this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.playersSubject.value.length;
-    }
-    this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.playersSubject.value.length;
-  }
-
-  /**
-   * Maneja el pago del salario cuando un jugador pasa por la salida
-   * @param playerId ID del jugador que recibe el salario
-   */
-  handleSalaryPayment(playerId: number): void {
-    const players = this.playersSubject.value;
-    const player = players.find(p => p.id === playerId);
-    if (player) {
-      player.money += player.salary;
-      this.playersSubject.next([...players]);
+      console.log("player.skipNextTurn = false;")
+      this.updatePlayer(this.currentPlayer);
+      this.nextTurn();
     }
   }
 
