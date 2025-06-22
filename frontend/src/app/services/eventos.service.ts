@@ -1,70 +1,97 @@
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { BehaviorSubject, Observable } from 'rxjs';
 import { Evento, TipoSeguro } from '../models/evento.model.js';
 import { PlayerService } from './player.service';
 import { Player } from '../models/player.model.js';
 
 @Injectable({ providedIn: 'root' })
-
 export class EventoService {
-    private eventos: Evento[] = [];
-    constructor(private playerService: PlayerService) {}
+  // ======== CAMBIO: De array vacío a BehaviorSubject ========
+  private eventosSubject = new BehaviorSubject<Evento[]>([]);
+  public eventos$ = this.eventosSubject.asObservable();
 
+  // ======== CAMBIO: Inyectar HttpClient ========
+  constructor(
+    private playerService: PlayerService,
+    private http: HttpClient
+  ) {
+    // ======== CAMBIO: Carga automática al inicializar ========
+    this.cargarEventosDesdeBackend();
+  }
 
-    inicializarEventos(): void {
-        this.eventos = [
-        {
-            tipo: TipoSeguro.SALUD,
-            texto: 'Te has roto una pierna. Gastos médicos 200€.',
-            cantidad: -200,
-            variable: 'money',
-            descuento: 0.5
+  // ======== NUEVO MÉTODO: Carga desde MongoDB ========
+  private cargarEventosDesdeBackend(): void {
+    this.http.get<Evento[]>('/api/eventos').subscribe({
+      next: (eventos) => {
+        if (eventos && eventos.length > 0) {
+          this.eventosSubject.next(eventos);
+          console.log('Eventos cargados desde MongoDB:', eventos.length);
+        } else {
+          console.warn('No se encontraron eventos en la base de datos');
         }
-        ];
+      },
+      error: (error) => {
+        console.error('Error al cargar eventos desde backend:', error);
+      }
+    });
+  }
+
+  // ======== MÉTODO MODIFICADO: Obtener desde BehaviorSubject ========
+  getEventos(): Evento[] {
+    return this.eventosSubject.value;
+  }
+
+  // ======== MÉTODO MEJORADO: Con validación de array vacío ========
+  getEventoAleatorio(): Evento | null {
+    const eventos = this.eventosSubject.value;
+    if (eventos.length === 0) {
+      console.warn('No hay eventos disponibles');
+      return null;
+    }
+    const index = Math.floor(Math.random() * eventos.length);
+    return eventos[index];
+  }
+
+  // ======== NUEVO MÉTODO: Recarga manual si es necesario ========
+  recargarEventos(): void {
+    this.cargarEventosDesdeBackend();
+  }
+
+  // ======== MÉTODO SIN CAMBIOS: Lógica de aplicación ========
+  aplicarEvento(evento: Evento, player: Player): { aplicado: boolean; descuentoAplicado: boolean; cantidadFinal: number } {
+    const jugador = player;
+    let cantidadFinal = evento.cantidad;
+    let descuentoAplicado = false;
+
+    if (
+      evento.tipo !== 'EVENTO' &&
+      jugador.insured?.includes(evento.tipo) &&
+      evento.descuento
+    ) {
+      const descuento = evento.cantidad * evento.descuento;
+      cantidadFinal = evento.cantidad - descuento;
+      descuentoAplicado = true;
     }
 
-    getEventos(): Evento[] {
-        return this.eventos;
+    // Verificar si puede pagar ANTES de aplicar
+    if (evento.cantidad < 0 && Math.abs(cantidadFinal) > jugador.money) {
+      return { aplicado: false, descuentoAplicado: false, cantidadFinal: 0 };
     }
 
-    getEventoAleatorio(): Evento {
-        const index = Math.floor(Math.random() * this.eventos.length);
-        return this.eventos[index];
+    switch (evento.variable) {
+      case 'money':
+        jugador.money += cantidadFinal;
+        break;
+      case 'salary':
+        jugador.salary += cantidadFinal;
+        break;
+      case 'rent':
+        jugador.rent += cantidadFinal;
+        break;
     }
 
-    aplicarEvento(evento: Evento, player: Player): { aplicado: boolean; descuentoAplicado: boolean; cantidadFinal: number } {
-        const jugador = player;
-        let cantidadFinal = evento.cantidad;
-        let descuentoAplicado = false;
-
-        if (
-            evento.tipo !== 'EVENTO' &&
-            jugador.insured?.includes(evento.tipo) &&
-            evento.descuento
-        ) {
-            const descuento = evento.cantidad * evento.descuento;
-            cantidadFinal = evento.cantidad - descuento;
-            descuentoAplicado = true;
-        }
-
-        // Verificar si puede pagar ANTES de aplicar
-        if (evento.cantidad < 0 && Math.abs(cantidadFinal) > jugador.money) {
-            return { aplicado: false, descuentoAplicado: false, cantidadFinal: 0 };
-        }
-
-        switch (evento.variable) {
-            case 'money':
-            jugador.money += cantidadFinal;
-            break;
-            case 'salary':
-            jugador.salary += cantidadFinal;
-            break;
-            case 'rent':
-            jugador.rent += cantidadFinal;
-            break;
-        }
-
-        this.playerService.updatePlayer(jugador);
-        return { aplicado: true, descuentoAplicado, cantidadFinal };
-    }
-
+    this.playerService.updatePlayer(jugador);
+    return { aplicado: true, descuentoAplicado, cantidadFinal };
+  }
 }

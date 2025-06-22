@@ -23,14 +23,6 @@ import { ModalService } from '../../services/modal.service';
 import { seguros } from '../../services/casillas.service';
 
 
-
-// ======== Enumerados ========
-enum Dificultad {
-  FACIL = "FACIL",
-  MEDIA = "MEDIA",
-  DIFICIL = "DIFICIL"
-}
-
 // ======== Decorador del Componente ========
 /**
  * Componente principal del juego.
@@ -80,8 +72,6 @@ export class GameComponent implements AfterViewInit, OnDestroy {
   private currentPlayer!: Player;
 
   // Señales de estado
-  Dificultad = Dificultad;
-  dificultad = signal<Dificultad | null>(null);
   equipos = signal<boolean | null>(null);
   cantidadDeJugadores = signal<number | null>(null);
   jugadores = signal<string[] | null>(null);
@@ -95,7 +85,6 @@ export class GameComponent implements AfterViewInit, OnDestroy {
   // ======== Métodos del ciclo de vida ========
   ngOnInit() {
     this.route.queryParams.subscribe((params: { [key: string]: any }) => {
-      this.dificultad.set(params['dificultad']);
       this.equipos.set(params['equipos']);
       this.cantidadDeJugadores.set(params['cantidadDeJugadores']);
       this.jugadores.set(params['jugadores']);
@@ -160,7 +149,6 @@ export class GameComponent implements AfterViewInit, OnDestroy {
     game.registry.set('modalService', this.modalService);
     game.registry.set('playerService', this.playerService);
     game.registry.set('eventoService', this.eventoService);
-    game.registry.set('dificultad', this.dificultad());
     game.registry.set('jugadores', this.jugadores());
     game.registry.set('equipos', this.equipos());
     game.registry.set('cantidadDeJugadores', this.cantidadDeJugadores());
@@ -215,7 +203,6 @@ export class GameComponent implements AfterViewInit, OnDestroy {
   // ======== Métodos de validación y limpieza ========
   private validateGameParameters(): void {
     if (
-      !this.dificultad() ||
       this.equipos() === null ||
       !this.cantidadDeJugadores() ||
       !this.jugadores()
@@ -255,7 +242,6 @@ export class BoardScene extends Phaser.Scene {
 
 
   // Configuración y estado del juego
-  dificultad = signal<Dificultad | null>(null);
   equipos = signal<boolean | null>(null);
   cantidadDeJugadores = 0;
   jugadores = signal<string[] | null>(null);
@@ -283,7 +269,6 @@ export class BoardScene extends Phaser.Scene {
     this.playerService = this.game.registry.get('playerService');
     this.eventoService = this.game.registry.get('eventoService');
     this.modalService = this.game.registry.get('modalService');
-    this.dificultad = this.game.registry.get('dificultad');
     this.jugadores = this.game.registry.get('jugadores');
     this.cantidadDeJugadores = this.game.registry.get('cantidadDeJugadores');
     this.equipos = this.game.registry.get('equipos');
@@ -426,7 +411,6 @@ export class BoardScene extends Phaser.Scene {
           this.showErrorModalPhaser(message, type);
         }
       );
-      this.eventoService.inicializarEventos();
   }
 
   // ======== Métodos de lógica principal ========
@@ -603,8 +587,10 @@ export class BoardScene extends Phaser.Scene {
     const scene = this; // referencia a la escena actual
     let flag1= false;
     let flag2= false;
-    const evento = this.eventoService.getEventoAleatorio();
     this.time.paused = true; // Pausa timers/tweens
+    
+    const evento = seguro === 'EVENTO' ? this.eventoService.getEventoAleatorio() : null;
+
 
     // 1. Fondo oscuro
     const overlay = scene.add.rectangle(scene.cameras.main.centerX, scene.cameras.main.centerY, 
@@ -646,21 +632,22 @@ export class BoardScene extends Phaser.Scene {
         nombreImagen =seguro.toLowerCase();
         break
       case 'EVENTO':
-        console.log(evento)
-         switch (evento.tipo) {
-          case 'SALUD':
-          case 'VIDA':
-          case 'COCHE':
-          case 'VIAJE':
-          case 'HOGAR':
-          case 'RESPONSABILIDAD_CIVIL':
-          case 'CAJA_AHORROS':
-            nombreImagen =evento.tipo.toLowerCase();
-            break
-          default:
-            nombreImagen=null;
-            break
-        }
+        
+          console.log(evento)
+          switch (evento?.tipo) {
+              case 'SALUD':
+              case 'VIDA':
+              case 'COCHE':
+              case 'VIAJE':
+              case 'HOGAR':
+              case 'RESPONSABILIDAD_CIVIL':
+              case 'CAJA_AHORROS':
+                nombreImagen =evento.tipo.toLowerCase();
+                break
+              default:
+                nombreImagen=null;
+                break
+            }
         break;
       case 'PAGO_MENSUAL':
       case 'SUELDO':
@@ -692,7 +679,7 @@ export class BoardScene extends Phaser.Scene {
     }else{
       if(nombreSeguro=='Evento'){
         texto = scene.add.text(scene.cameras.main.centerX, scene.cameras.main.centerY - 20, 
-        `${evento.texto}`, 
+        `${evento?.texto}`, 
         { font: '20px Arial', color: '#000', align: 'center',
         wordWrap: { width: modalWidth - 40 }}).setOrigin(0.5);
       texto.setDepth(1002);
@@ -762,21 +749,21 @@ export class BoardScene extends Phaser.Scene {
       btnSiguiente.on('pointerdown', () => {
         switch (seguro) {
           case 'EVENTO':
-            const resultado = this.eventoService.aplicarEvento(evento,player);
-            if (!resultado.aplicado && !flag1) {
-              flag1 = true;
-              player.skipNextTurn = true;
-              scene.modalService.showErrorModal(
-                `No tienes suficiente dinero para cubrir este evento.\nPierdes un turno`
-              );
-              return;
-            }
-            
-            if (resultado.descuentoAplicado) {
-              scene.modalService.showErrorModal(
-                `¡Descuento aplicado! Has ahorrado ${evento.cantidad - resultado.cantidadFinal}€`,
-                'info' // Añade un tipo para diferenciar mensajes
-              );
+            if (evento){
+              const resultado = this.eventoService.aplicarEvento(evento , player);
+              
+              if (!resultado.aplicado && !flag1) {
+                flag1 = true;
+                player.skipNextTurn = true;
+                scene.modalService.showErrorModal(
+                  `No tienes suficiente dinero para cubrir este evento.\nPierdes un turno`
+                );
+                return;
+              }
+              
+              if (resultado.descuentoAplicado) {
+                scene.modalService.showErrorModal(`¡Descuento aplicado! Has ahorrado ${evento.cantidad - resultado.cantidadFinal}€`);
+              }
             }
             break;
 
