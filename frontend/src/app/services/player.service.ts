@@ -1,82 +1,93 @@
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject } from 'rxjs';
 import { Player } from '../models/player.model';
 
-/**
- * Servicio para gestionar:
- * - Estado de los jugadores
- * - Turnos del juego
- * - Transacciones económicas básicas
- */
 @Injectable({ providedIn: 'root' })
 export class PlayerService {
   // ======== Inicializaciones ========
-  /** Almacena y emite el estado actual de todos los jugadores (privado) */
   public playersSubject = new BehaviorSubject<Player[]>([]);
-  /** Observable público para suscribirse a cambios de jugadores */
   public players$ = this.playersSubject.asObservable();
-  /** Índice del jugador actual en el array */
   public currentPlayerIndex = 0;
 
   // ======== Constructor ========
-  constructor() {
-    this.loadPlayersFromStorage();
-    // Guarda automáticamente en localStorage cada vez que cambian los jugadores
-    this.playersSubject.subscribe(players => {
-      localStorage.setItem('players', JSON.stringify(players));
+  constructor(private http: HttpClient) {
+    this.loadPlayersFromBackend();
+    // ELIMINADO: La suscripción automática a localStorage
+  }
+
+  // ======== Métodos de carga ========
+  private loadPlayersFromBackend(): void {
+    this.http.get<Player[]>('/api/players').subscribe({
+      next: (players) => {
+        if (players && players.length > 0) {
+          this.playersSubject.next(players);
+          console.log('Jugadores cargados desde MongoDB:', players.length);
+        } 
+      },
+      error: (error) => {
+        console.error('Error al cargar jugadores desde backend:', error);
+      }
     });
   }
 
-  // ======== Métodos de inicialización y carga ========
-  /** Carga los jugadores guardados desde localStorage (si existen) */
-  private loadPlayersFromStorage(): void {
-    const saved = localStorage.getItem('players');
-    if (saved) {
-      try {
-        const players = JSON.parse(saved);
-        this.playersSubject.next(players);
-      } catch (error) {
-        console.error('Error al cargar jugadores:', error);
+
+
+  private savePlayersToBackend(players: Player[]): void {
+    this.http.post('/api/players', players).subscribe({
+      next: () => {
+        console.log('Jugadores guardados en MongoDB exitosamente');
+      },
+      error: (error) => {
+        console.error('Error al guardar jugadores en MongoDB:', error);
       }
-    }
+    });
   }
 
-  /**
-   * Inicializa los jugadores con valores por defecto
-   * @param names Nombres de los jugadores (ej: ['Jugador 1', 'Jugador 2'])
-   */
+  // ======== Métodos de inicialización ========
   initializePlayers(names: string[]): void {
+    console.log('🔧 Inicializando jugadores:', names);
+    
+    // Solo crear si no existen jugadores
     if (!this.playersSubject.value.length) {
       const players = names.map((name, index) => ({
         id: index + 1,
         name,
-        money: 1000, // Dinero inicial
-        salary: 400, // Salario por vuelta completa
-        rent: 100, // Cuota mensual (no usado en la versión actual)
-        position: 11, // Casilla inicial
-        insured: [], // Propiedades aseguradas (no usado en la versión actual)
-        skipNextTurn: false, // Control de turnos perdidos
+        money: 1000,
+        salary: 400,
+        rent: 100,
+        position: 11,
+        insured: [],
+        skipNextTurn: false,
       }));
+      
+      // Actualizar el BehaviorSubject primero
       this.playersSubject.next(players);
+      console.log('✅ Jugadores creados en memoria');
+      
+      // Guardar en MongoDB
+      this.savePlayersToBackend(players);
+    } else {
+      console.log('⚠️ Jugadores ya existen, no se crean nuevos');
     }
   }
 
-  // ======== Métodos de acceso y lógica ========
-  /** Devuelve el array actual de jugadores */
+
+  // ======== Métodos de acceso ========
   getCurrentPlayers(): Player[] {
     return this.playersSubject.value;
   }
 
-  /** Obtiene el jugador actual */
-  get currentPlayer(): Player {
-    return this.playersSubject.value[this.currentPlayerIndex];
+  get currentPlayer(): Player | null {
+    const players = this.playersSubject.value;
+    if (!players || players.length === 0 || this.currentPlayerIndex >= players.length) {
+      return null;
+    }
+    return players[this.currentPlayerIndex];
   }
 
-  /**
-   * Actualiza la posición de un jugador
-   * @param playerId ID del jugador
-   * @param newPosition Nueva posición
-   */
+
+  // ======== Métodos de actualización ========
   updatePlayerPosition(playerId: number, newPosition: number): void {
     const players = this.playersSubject.value;
     const idx = players.findIndex(p => p.id === playerId);
@@ -84,40 +95,82 @@ export class PlayerService {
       const updatedPlayer = { ...players[idx], position: newPosition };
       const updatedPlayers = [...players];
       updatedPlayers[idx] = updatedPlayer;
-      this.playersSubject.next(updatedPlayers); // Esto guarda en localStorage
+      this.playersSubject.next(updatedPlayers);
+      
+      // Usar PATCH para actualizar solo la posición
+      this.http.patch(`/api/players/${playerId}/position`, { position: newPosition }).subscribe({
+        error: (error) => {
+          console.error('Error al actualizar posición en MongoDB:', error);
+        }
+      });
     }
   }
-  // player.service.ts
+
   updatePlayer(updatedPlayer: Player): void {
     const players = this.playersSubject.value;
     const idx = players.findIndex(p => p.id === updatedPlayer.id);
     if (idx !== -1) {
       const updatedPlayers = [...players];
       updatedPlayers[idx] = { ...updatedPlayer };
-      this.playersSubject.next(updatedPlayers); // Esto guarda en localStorage automáticamente
+      this.playersSubject.next(updatedPlayers);
+
+      // Usar PUT para actualizar jugador completo
+      this.http.put(`/api/players/${updatedPlayer.id}`, updatedPlayer).subscribe({
+        error: (error) => {
+          console.error('Error al actualizar jugador en MongoDB:', error);
+          localStorage.setItem('players', JSON.stringify(updatedPlayers));
+        }
+      });
     }
   }
 
-
-  /**
-   * Avanza al siguiente turno, aplicando lógica de turnos perdidos
-   */
+  // ======== Métodos de turno ========
   nextTurn(): void {
-    this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.playersSubject.value.length;
-    console.log(this.currentPlayer)
-    if (this.currentPlayer.skipNextTurn) {
-      this.currentPlayer.skipNextTurn = false;
-      console.log("player.skipNextTurn = false;")
-      this.updatePlayer(this.currentPlayer);
+    const players = this.playersSubject.value;
+    
+    // Validar que existan jugadores antes de proceder
+    if (!players || players.length === 0) {
+      console.warn('No hay jugadores disponibles para el siguiente turno');
+      return;
+    }
+    
+    this.currentPlayerIndex = (this.currentPlayerIndex + 1) % players.length;
+    const currentPlayer = players[this.currentPlayerIndex];
+    
+    // Validar que el jugador actual existe
+    if (!currentPlayer) {
+      console.error('Jugador actual no encontrado');
+      return;
+    }
+    
+    console.log(currentPlayer);
+    
+    if (currentPlayer.skipNextTurn) {
+      currentPlayer.skipNextTurn = false;
+      console.log("player.skipNextTurn = false;");
+      this.updatePlayer(currentPlayer);
       this.nextTurn();
     }
   }
 
-  // ======== Métodos de limpieza/eliminación ========
-  /** Borra el estado de la partida */
+
+  // ======== Métodos de limpieza ========
   resetGame(): void {
-    localStorage.removeItem('players');
-    this.playersSubject.next([]);
-    this.currentPlayerIndex = 0;
+    this.http.delete('/api/players').subscribe({
+      next: () => {
+        console.log('Jugadores eliminados de MongoDB');
+        this.playersSubject.next([]);
+        this.currentPlayerIndex = 0;
+      },
+      error: (error) => {
+        console.error('Error al eliminar jugadores de MongoDB:', error);
+        this.playersSubject.next([]);
+        this.currentPlayerIndex = 0;
+      }
+    });
+  }
+
+  reloadPlayersFromBackend(): void {
+    this.loadPlayersFromBackend();
   }
 }

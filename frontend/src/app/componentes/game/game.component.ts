@@ -10,7 +10,7 @@ import {
   inject,
   signal
 } from '@angular/core';
-import { Subscription } from 'rxjs';
+import { Subject, Subscription, takeUntil } from 'rxjs';
 
 // Frameworks y servicios
 import Phaser from 'phaser';
@@ -67,7 +67,8 @@ export class GameComponent implements AfterViewInit, OnDestroy {
 
   // Estado del juego
   private game!: Phaser.Game;
-  private playersSub!: Subscription;
+  private playersSub?: Subscription;
+  private destroy$ = new Subject<void>();
   private players: Player[] = [];
   private currentPlayer!: Player;
 
@@ -91,15 +92,77 @@ export class GameComponent implements AfterViewInit, OnDestroy {
       this.validateGameParameters();
     });
   }
+  private isLoading = signal(true);
+  private hasError = signal(false);
 
   ngAfterViewInit(): void {
-    this.initializePhaserGame();
-    this.initializePlayers();
+    console.log('🚀 Iniciando componente de juego');
+    
+    // PASO 1: Extraer nombres desde URL
+    const playerNames = this.extractPlayerNamesFromURL();
+    console.log('📝 Nombres extraídos de URL:', playerNames);
+    
+    if (playerNames.length > 0) {
+      console.log('⚙️ Creando jugadores desde URL...');
+      // PASO 2: Crear jugadores con nombres de URL
+      this.playerService.initializePlayers(playerNames);
+    } else {
+      console.warn('⚠️ No se encontraron nombres de jugadores en la URL');
+    }
+    
+    // PASO 3: Suscribirse a cambios de jugadores
+    this.playersSub = this.playerService.players$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (players) => {
+          console.log('👥 Jugadores recibidos:', players.length);
+          this.players = players;
+          this.isLoading.set(false);
+          
+          // PASO 4: Inicializar Phaser cuando tengamos jugadores
+          if (players.length > 0 && !this.game) {
+            console.log('🎮 Inicializando Phaser con', players.length, 'jugadores');
+            this.initializePhaserGame();
+            this.setupEventListenersAfterInit();
+          }
+        },
+        error: (error) => {
+          console.error('❌ Error cargando jugadores:', error);
+          this.hasError.set(true);
+          this.isLoading.set(false);
+        }
+      });
+  }
+
+
+  private extractPlayerNamesFromURL(): string[] {
+    // Obtener parámetros de la URL actual
+    const urlParams = new URLSearchParams(window.location.search);
+
+    // CORRECTO: getAll() para múltiples parámetros con el mismo nombre  
+    const jugadores = urlParams.getAll('jugadores');
+    console.log('🔍 Parámetros jugadores encontrados:', jugadores);
+    
+    if (jugadores.length > 0) {
+      // Filtrar nombres vacíos y limpiar espacios
+      return jugadores.filter(name => name.trim().length > 0);
+    }
+    
+    return [];
+    }
+
+
+
+
+  // ======== NUEVO MÉTODO: CONFIGURAR EVENT LISTENERS DESPUÉS DE INICIALIZACIÓN ========
+  private setupEventListenersAfterInit(): void {
     this.setupEventListeners();
-    this.modalService.seguro$.subscribe(({ player, seguro }) => {
+  
+  this.modalService.seguro$
+    .pipe(takeUntil(this.destroy$))
+    .subscribe(({ player, seguro }) => {
       const scene = this.game.scene.keys['BoardScene'] as BoardScene;
       if (scene && typeof scene.solicitarModalSeguro === 'function') {
-        // Llama directamente a mostrarSeguroModal, gestionando la cola correctamente
         scene.solicitarModalSeguro(player, seguro);
       } else {
         console.warn('No se encontró la función solicitarModalSeguro en la escena activa');
@@ -108,7 +171,12 @@ export class GameComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.cleanupGameResources();
+    this.destroy$.next();
+    this.destroy$.complete();
+    this.playersSub?.unsubscribe();
+    if (this.game) {
+      this.game.destroy(true);
+    }  
   }
 
 
@@ -124,8 +192,15 @@ export class GameComponent implements AfterViewInit, OnDestroy {
     return null;
   }
 
-  // ======== Métodos de inicialización ========
   private initializePhaserGame(): void {
+    // Verificar que tenemos jugadores antes de inicializar Phaser
+    if (!this.players.length) {
+      console.warn('No se puede inicializar Phaser sin jugadores');
+      return;
+    }
+
+    console.log('Iniciando Phaser con', this.players.length, 'jugadores');
+
     const config: Phaser.Types.Core.GameConfig = {
       type: Phaser.AUTO,
       width: window.innerWidth,
@@ -153,20 +228,6 @@ export class GameComponent implements AfterViewInit, OnDestroy {
     game.registry.set('equipos', this.equipos());
     game.registry.set('cantidadDeJugadores', this.cantidadDeJugadores());
   }
-
-  private initializePlayers(): void {
-    if (!this.playerService.getCurrentPlayers().length) {
-      this.playerService.initializePlayers(this.jugadores()!);
-    }
-    this.currentPlayer = this.playerService.currentPlayer;
-
-    this.game.events.once('ready', () => {
-      this.players.forEach(player => {
-        this.game.scene.getScene('BoardScene').add.sprite(0, 0, 'player_token');
-      });
-    });
-  }
-
   // ======== Métodos de lógica principal ========
   private setupEventListeners(): void {
     this.game.events.on('passingPosition', (position: number) => {
@@ -193,12 +254,21 @@ export class GameComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  private handlePlayerMovement(newPosition: number): void {
-    this.currentPlayer.position = newPosition;
-    this.casillasService.handleBoardPosition(newPosition, this.currentPlayer);
-    this.playerService.nextTurn();
-    this.currentPlayer = this.playerService.currentPlayer;
+private handlePlayerMovement(newPosition: number): void {
+  // Mueve la ficha del jugador actual
+  this.currentPlayer.position = newPosition;
+  this.casillasService.handleBoardPosition(newPosition, this.currentPlayer);
+  this.playerService.nextTurn();
+
+  // Obtener el siguiente jugador y validar
+  const next = this.playerService.currentPlayer;
+  if (!next) {
+    console.warn('No hay jugador actual disponible');  // Previene asignaciones a null
+    return;
   }
+  this.currentPlayer = next;
+}
+
 
   // ======== Métodos de validación y limpieza ========
   private validateGameParameters(): void {
@@ -211,17 +281,7 @@ export class GameComponent implements AfterViewInit, OnDestroy {
       this.router.navigate(['sala']);
     }
   }
-
-  private cleanupGameResources(): void {
-    this.game?.destroy(true);
-    this.playersSub?.unsubscribe();
-  }
 }
-
-
-
-
-
 
 export class BoardScene extends Phaser.Scene {
   // ======== Inicializaciones de variables y servicios ========
@@ -358,14 +418,21 @@ export class BoardScene extends Phaser.Scene {
     // 5. Añadir fichas de jugadores a la primera casilla
     const players = this.playerService.getCurrentPlayers();
     for (let i = 0; i < players.length; i++) {
-      const player = players[i];
-      const posIndex = player?.position ?? 11;
-      const pos = this.cellPositions[posIndex];
-      const token = this.add.image(pos.x, pos.y, `ficha${i + 1}`)
-        .setOrigin(0.5, 0.5)
-        .setScale(0.3);
-      this.tokens.push(token);
-      this.currentIndex.push(posIndex);
+      const player = this.playerService.currentPlayer;
+      if (player) {
+        const posIndex = player?.position ?? 11;
+        const pos = this.cellPositions[posIndex];
+        const token = this.add.image(pos.x, pos.y, `ficha${i + 1}`)
+          .setOrigin(0.5, 0.5)
+          .setScale(0.3);
+        this.tokens.push(token);
+        this.currentIndex.push(posIndex);
+      } else {
+        console.warn('No hay jugador actual disponible');
+        return;
+      }
+
+      
     }
 
 
@@ -539,10 +606,17 @@ export class BoardScene extends Phaser.Scene {
           this.overlay.setVisible(false);
           this.diceText.setVisible(false);
           this.continueText.setVisible(false);
+
           const jugadorActual = this.playerService.currentPlayer;
+          if (!jugadorActual) {
+            console.warn('No hay jugador actual disponible'); 
+            this.diceBtn.setInteractive();
+            return;
+          }
+
           this.moveToken(jugadorActual, n, () => {
-          this.diceBtn.setInteractive();
-          })
+            this.diceBtn.setInteractive();
+          });
         });
       }
     });
@@ -589,8 +663,12 @@ export class BoardScene extends Phaser.Scene {
     let flag2= false;
     this.time.paused = true; // Pausa timers/tweens
     
-    const evento = seguro === 'EVENTO' ? this.eventoService.getEventoAleatorio() : null;
-
+    const evento = this.eventoService.getEventoAleatorio();
+    if (evento) {
+      this.eventoService.aplicarEvento(evento, player);
+    } else {
+      console.warn('Eventos aún no cargados desde MongoDB');
+    }
 
     // 1. Fondo oscuro
     const overlay = scene.add.rectangle(scene.cameras.main.centerX, scene.cameras.main.centerY, 
