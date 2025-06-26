@@ -30,7 +30,9 @@ export class MenuComponent {
   LinkBackwardIcon: any;
   flag = false;
 
-
+  ngOnInit() {          
+    localStorage.clear();
+  }
   constructor() {
     this.uttr = new SpeechSynthesisUtterance();
     this.uttr.lang = 'es-ES';
@@ -38,31 +40,37 @@ export class MenuComponent {
   botonSetDificultad(value : Dificultad)
   {
     this.dificultadSelecionada.set(value);
+    window.speechSynthesis.cancel();
     this.uttr.text = value;
     window.speechSynthesis.speak(this.uttr);
   }
   botonIndividual() {
     this.modoEquiposSeleccionado.set(false);
+    window.speechSynthesis.cancel();
     this.uttr.text = "individual";
     window.speechSynthesis.speak(this.uttr);
   }
   botonEquipos() {
     this.modoEquiposSeleccionado.set(true);
+    window.speechSynthesis.cancel();
     this.uttr.text = "equipos";
     window.speechSynthesis.speak(this.uttr);
   }
   asignarValor(value: number) {
     this.cantidadJugadoresSeleccionada.set(value);
+    window.speechSynthesis.cancel();
     this.uttr.text = value.toString();
     window.speechSynthesis.speak(this.uttr);
   }
   siguienteDificultadSelecionada() {
     if (this.dificultadSelecionada() != null) {
     this.paso.update(value => value + 1);
+    window.speechSynthesis.cancel();
     this.uttr.text = "Elige el modo de juego";
     window.speechSynthesis.speak(this.uttr);
     }else {
       alert("Selecciona una dificultad");
+      window.speechSynthesis.cancel();
       this.uttr.text = "Selecciona una dificultad";
       window.speechSynthesis.speak(this.uttr);
     }
@@ -71,13 +79,16 @@ export class MenuComponent {
     if (this.modoEquiposSeleccionado() != null) {
       this.paso.update(value => value + 1);
       if (this.modoEquiposSeleccionado()) {
+        window.speechSynthesis.cancel();
         this.uttr.text = "Selecciona la cantidad de equipos";
       }else {
-      this.uttr.text = "Selecciona la cantidad de jugadores";
+        window.speechSynthesis.cancel();
+        this.uttr.text = "Selecciona la cantidad de jugadores";
       }
       window.speechSynthesis.speak(this.uttr);
     }else {
       alert("Selecciona un modo de juego");
+      window.speechSynthesis.cancel();
       this.uttr.text = "Selecciona un modo de juego";
       window.speechSynthesis.speak(this.uttr);
     }
@@ -93,10 +104,12 @@ export class MenuComponent {
     if(value != 0) {
       this.paso.update(value => value + 1);
       this.numerosRecortados.update(() => this.numeros().slice(0, value));
+      window.speechSynthesis.cancel();
       this.uttr.text = "Escribid vuestros nombres";
       window.speechSynthesis.speak(this.uttr);
     }else {
       alert("Selecciona una cantidad de jugadores");
+      window.speechSynthesis.cancel();
       this.uttr.text = "Selecciona una cantidad de jugadores";
       window.speechSynthesis.speak(this.uttr);
     }
@@ -115,6 +128,7 @@ export class MenuComponent {
         console.log(nombre);
         if (nombre === "") {
           alert("El jugador " + numId + " no tiene nombre.");
+          window.speechSynthesis.cancel();
           this.uttr.text = "Escribid vuestros nombres";
           window.speechSynthesis.speak(this.uttr);
           jugadoresSinNombre = true;

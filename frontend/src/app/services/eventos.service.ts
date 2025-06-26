@@ -1,25 +1,28 @@
 import { Injectable } from '@angular/core';
-import { Evento, TipoSeguro } from '../models/evento.model.js';
+import { HttpClient } from '@angular/common/http'; // Añade esta importación
+import { Evento, TipoSeguro } from '../models/evento.model';
 import { PlayerService } from './player.service';
-import { Player } from '../models/player.model.js';
+import { Player } from '../models/player.model';
+import { Observable, tap } from 'rxjs'; // Añade estas importaciones
 
 @Injectable({ providedIn: 'root' })
-
 export class EventoService {
     private eventos: Evento[] = [];
-    constructor(private playerService: PlayerService) {}
 
+    constructor(
+        private playerService: PlayerService,
+        private http: HttpClient
+    ) {}
 
-    inicializarEventos(): void {
-        this.eventos = [
-        {
-            tipo: TipoSeguro.SALUD,
-            texto: 'Te has roto una pierna. Gastos médicos 200€.',
-            cantidad: -200,
-            variable: 'money',
-            descuento: 0.5
-        }
-        ];
+    cargarEventosDesdeBackend(): Observable<Evento[]> {
+        return this.http.get<Evento[]>('/api/eventos').pipe(
+            tap(eventos => {
+                this.eventos = eventos;
+            })
+        );
+    }
+    inicializarEventos(): Observable<Evento[]> {
+        return this.cargarEventosDesdeBackend();
     }
 
     getEventos(): Evento[] {
@@ -31,8 +34,9 @@ export class EventoService {
         return this.eventos[index];
     }
 
-    aplicarEvento(evento: Evento, player: Player): { aplicado: boolean; descuentoAplicado: boolean; cantidadFinal: number } {
-        const jugador = player;
+
+
+    aplicarEvento(evento: Evento, player: Player): { aplicado: boolean; descuentoAplicado: boolean; cantidadFinal: number } {        const jugador = player;
         let cantidadFinal = evento.cantidad;
         let descuentoAplicado = false;
 

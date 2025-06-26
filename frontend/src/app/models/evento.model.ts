@@ -13,6 +13,7 @@ export enum TipoSeguro {
 export type VariableModificable = 'money' | 'salary' | 'rent';
 
 export interface Evento {
+  _id: number;                // Identificador único del evento
   tipo: TipoSeguro;               // Tipo de seguro o 'EVENTO'
   texto: string;                  // Descripción del evento
   cantidad: number;               // Valor a sumar/restar (ej: -200)

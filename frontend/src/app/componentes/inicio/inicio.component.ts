@@ -20,6 +20,7 @@ ngOnInit() {
 }
 irSala(){
   this.router.navigate(['sala']);
+  window.speechSynthesis.cancel();
   this.uttr.text = "Selecciona una dificultad";
   window.speechSynthesis.speak(this.uttr);
 }

@@ -51,7 +51,7 @@ export class PlayerService {
         id: index + 1,
         name,
         money: 1000, // Dinero inicial
-        salary: 200, // Salario por vuelta completa
+        salary: 500, // Salario por vuelta completa
         rent: 100, // Cuota mensual (no usado en la versión actual)
         position: 11, // Casilla inicial
         insured: [], // Propiedades aseguradas (no usado en la versión actual)

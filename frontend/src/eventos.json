@@ -1,0 +1,256 @@
+[
+   
+    {
+        "_id": 1,
+      "tipo": "COCHE",
+      "texto": "Pinchazo en rueda. Reparación: 100€.",
+      "cantidad": -100,
+      "variable": "money",
+      "descuento": 0.5
+    },
+    {
+        "_id": 2,
+      "tipo": "COCHE",
+      "texto": "Has tenido un accidente las reparaciones cuestan 200€.",
+      "cantidad": -100,
+      "variable": "money",
+      "descuento": 0.5
+    },
+    {
+        "_id": 3,
+      "tipo": "COCHE",
+      "texto": "Te han dado un glope aparcando. Pagas 50€.",
+      "cantidad": -50,
+      "variable": "money",
+      "descuento": 1
+    },
+    {
+        "_id": 4,
+      "tipo": "COCHE",
+      "texto": "Granizo ha dañado tu coche. Repararlo cuesta 100€.",
+      "cantidad": -100,
+      "variable": "money",
+      "descuento": 0.5
+    },
+    {
+        "_id": 5,
+      "tipo": "COCHE",
+      "texto": "Tu coche no arranca y llamas a la grúa. Pagas 50€.",
+      "cantidad": -50,
+      "variable": "money",
+      "descuento": 0.5
+    },
+    {
+        "_id": 6,
+      "tipo": "EVENTO",
+      "texto": "Subida de alquiler. Pagas 50€ más este mes.",
+      "cantidad": 50,
+      "variable": "rent"
+    },
+    {
+        "_id": 7,
+      "tipo": "EVENTO",
+      "texto": "El alquiler sube este mes. Pagas 50€ más.",
+      "cantidad": 50,
+      "variable": "rent"
+    },
+    {
+        "_id": 8,
+      "tipo": "EVENTO",
+      "texto": "Has trabajado muy bien y te suben el sueldo. Ganas 100€ más cada ronda.",
+      "cantidad": 100,
+      "variable": "salary"
+    },
+    {
+        "_id": 9,
+      "tipo": "EVENTO",
+      "texto": "La empresa tiene menos trabajo y te bajan el sueldo. Pierdes 100€ cada ronda.",
+      "cantidad": -100,
+      "variable": "salary"
+    },
+    {
+        "_id": 10,
+      "tipo": "EVENTO",
+      "texto": "El alquiler de tu casa sube. Pagas 50€ más cada ronda.",
+      "cantidad": 50,
+      "variable": "rent"
+    },
+    {
+        "_id": 11,
+      "tipo": "EVENTO",
+      "texto": "El casero baja el alquiler. Pagas 50€ menos cada ronda.",
+      "cantidad": -50,
+      "variable": "rent"
+    },
+    {
+        "_id": 12,
+      "tipo": "EVENTO",
+      "texto": "Has ganado un sorteo. Recibes 200€.",
+      "cantidad": 200,
+      "variable": "money"
+    },
+    {
+        "_id": 13,
+      "tipo": "EVENTO",
+      "texto": "Te regala dinero tu abuela. Recibes 150€.",
+      "cantidad": 150,
+      "variable": "money"
+    },
+    {
+        "_id": 14,
+      "tipo": "EVENTO",
+      "texto": "Has ayudado en una actividad y te dan un premio de 100€.",
+      "cantidad": 100,
+      "variable": "money"
+    },
+    {
+        "_id": 15,
+      "tipo": "EVENTO",
+      "texto": "Te han cobrado una factura extra. Pierdes 100€.",
+      "cantidad": -100,
+      "variable": "money"
+    },
+    {
+        "_id": 16,
+      "tipo": "EVENTO",
+      "texto": "Recibes una ayuda del ayuntamiento. Ganas 150€.",
+      "cantidad": 150,
+      "variable": "money"
+    },
+    {
+        "_id": 17,
+      "tipo": "EVENTO",
+      "texto": "Has perdido una cartera. Pierdes 50€.",
+      "cantidad": -50,
+      "variable": "money"
+    },
+    {
+        "_id": 18,
+      "tipo": "HOGAR",
+      "texto": "Se ha roto la lavadora. Repararla cuesta 150€.",
+      "cantidad": -150,
+      "variable": "money",
+      "descuento": 0.5
+    },
+    {
+        "_id": 19,
+      "tipo": "HOGAR",
+      "texto": "Se ha ido la luz por un cortocircuito y arreglarlo cuesta 100€.",
+      "cantidad": -100,
+      "variable": "money",
+      "descuento": 0.5
+    },
+    {
+        "_id": 20,
+      "tipo": "HOGAR",
+      "texto": "Se ha roto el cristal de una ventana. Cambiarlo cuesta 50€.",
+      "cantidad": -50,
+      "variable": "money",
+      "descuento": 0.5
+    },
+    {
+        "_id": 21,
+      "tipo": "RESPONSABILIDAD_CIVIL",
+      "texto": "Dañas el móvil de un amigo. Pagas 200€.",
+      "cantidad": -200,
+      "variable": "money",
+      "descuento": 1
+    },
+    {
+        "_id": 22,
+      "tipo": "RESPONSABILIDAD_CIVIL",
+      "texto": "Sin querer, has roto el móvil de un amigo. Pagas 200€.",
+      "cantidad": -200,
+      "variable": "money",
+      "descuento": 1
+    },
+    {
+        "_id": 23,
+      "tipo": "RESPONSABILIDAD_CIVIL",
+      "texto": "Sin querer, has tirado agua y alguien se ha resbalado. Pagas 100€ de indemnización.",
+      "cantidad": -100,
+      "variable": "money",
+      "descuento": 1
+    },
+    {
+        "_id": 24,
+      "tipo": "RESPONSABILIDAD_CIVIL",
+      "texto": "Tu perro ha roto una planta de un vecino. Pagas 50€.",
+      "cantidad": -50,
+      "variable": "money",
+      "descuento": 1
+    },
+    {
+        "_id": 25,
+      "tipo": "SALUD",
+      "texto": "Necesitas gafas nuevas. Pagas 150€.",
+      "cantidad": -150,
+      "variable": "money",
+      "descuento": 0.5
+    },
+    {
+        "_id": 26,
+      "tipo": "SALUD",
+      "texto": "Te has caído en casa y necesitas ir al médico. Pagas 100€.",
+      "cantidad": -100,
+      "variable": "money",
+      "descuento": 0.5
+    },
+    {
+        "_id": 27,
+      "tipo": "SALUD",
+      "texto": "Te has roto un diente comiendo. Gastas 150€ en el dentista.",
+      "cantidad": -150,
+      "variable": "money",
+      "descuento": 0.5
+    },
+    {
+        "_id": 28,
+      "tipo": "SALUD",
+      "texto": "Te has hecho un esguince jugando y tienes que ir a urgencias. Pagas 100€.",
+      "cantidad": -100,
+      "variable": "money",
+      "descuento": 0.5
+    },
+    {
+        "_id": 29,
+      "tipo": "SALUD",
+      "texto": "Te han puesto una vacuna y pagas 50€.",
+      "cantidad": -50,
+      "variable": "money",
+      "descuento": 0.5
+    },
+    {
+        "_id": 30,
+      "tipo": "VIAJE",
+      "texto": "Cancelación de vuelo. Pierdes 250€ del billete.",
+      "cantidad": -250,
+      "variable": "money",
+      "descuento": 1
+    },
+    {
+        "_id": 31,
+      "tipo": "VIAJE",
+      "texto": "El autobús se ha retrasado y pierdes tu excursión. Pierdes 100€.",
+      "cantidad": -100,
+      "variable": "money",
+      "descuento": 1
+    },
+    {
+        "_id": 32,
+      "tipo": "VIAJE",
+      "texto": "Te has puesto malo en un viaje y pagas 100€ en el médico.",
+      "cantidad": -100,
+      "variable": "money",
+      "descuento": 1
+    },
+    {
+        "_id": 33,
+      "tipo": "VIAJE",
+      "texto": "Tu vuelo se retrasa y tienes que dormir en un hotel. Pagas 100€.",
+      "cantidad": -100,
+      "variable": "money",
+      "descuento": 1
+    }
+  ]
+  

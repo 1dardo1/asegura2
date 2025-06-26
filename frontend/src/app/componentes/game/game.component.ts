@@ -287,6 +287,7 @@ export class BoardScene extends Phaser.Scene {
     this.jugadores = this.game.registry.get('jugadores');
     this.cantidadDeJugadores = this.game.registry.get('cantidadDeJugadores');
     this.equipos = this.game.registry.get('equipos');
+    
   }
 
   /**
@@ -318,7 +319,7 @@ export class BoardScene extends Phaser.Scene {
    * Crea los elementos visuales del tablero y la interfaz de usuario.
    */
   create(): void {
-    
+
     const cw = this.scale.width;
     const ch = this.scale.height;
 
@@ -416,17 +417,20 @@ export class BoardScene extends Phaser.Scene {
       .setScrollFactor(0)
       .on('pointerdown', () => this.onDicePressed());
 
-      this.playersSub = this.playerService.players$.subscribe(players => {
-        this.clearPlayerCards();
-        this.drawPlayerCards();
-      });
-      this.errorSub = this.modalService.error$.subscribe(
-        ({ message, type }) => {
-          this.errorMessage = message;
-          this.showErrorModalPhaser(message, type);
-        }
-      );
-      this.eventoService.inicializarEventos();
+    this.playersSub = this.playerService.players$.subscribe(players => {
+      this.clearPlayerCards();
+      this.drawPlayerCards();
+    });
+    this.errorSub = this.modalService.error$.subscribe(
+      ({ message, type }) => {
+        this.errorMessage = message;
+        this.showErrorModalPhaser(message, type);
+      }
+    );
+    console.log("eventos:_____"+this.eventoService.getEventos());
+    if (this.eventoService.getEventos().length === 0) {
+      this.eventoService.inicializarEventos().subscribe();
+    }
   }
 
   // ======== Métodos de lógica principal ========
@@ -605,7 +609,7 @@ export class BoardScene extends Phaser.Scene {
     let flag2= false;
     const evento = this.eventoService.getEventoAleatorio();
     this.time.paused = true; // Pausa timers/tweens
-
+    
     // 1. Fondo oscuro
     const overlay = scene.add.rectangle(scene.cameras.main.centerX, scene.cameras.main.centerY, 
       scene.cameras.main.width, scene.cameras.main.height, 0x000000, 0.7);
