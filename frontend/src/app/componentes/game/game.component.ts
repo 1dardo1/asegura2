@@ -10,7 +10,7 @@ import {
   inject,
   signal
 } from '@angular/core';
-import { Subject, Subscription, takeUntil } from 'rxjs';
+import { Subject, Subscription, takeUntil, filter } from 'rxjs';
 
 // Frameworks y servicios
 import Phaser from 'phaser';
@@ -69,8 +69,11 @@ export class GameComponent implements AfterViewInit, OnDestroy {
   private game!: Phaser.Game;
   private playersSub?: Subscription;
   private destroy$ = new Subject<void>();
+  private currentPlayerIndex = 0;
   private players: Player[] = [];
   private currentPlayer!: Player;
+  private isLoading = signal(true);
+  private hasError = signal(false);
 
   // Señales de estado
   equipos = signal<boolean | null>(null);
@@ -84,6 +87,7 @@ export class GameComponent implements AfterViewInit, OnDestroy {
   
 
   // ======== Métodos del ciclo de vida ========
+  
   ngOnInit() {
     this.route.queryParams.subscribe((params: { [key: string]: any }) => {
       this.equipos.set(params['equipos']);
@@ -91,50 +95,47 @@ export class GameComponent implements AfterViewInit, OnDestroy {
       this.jugadores.set(params['jugadores']);
       this.validateGameParameters();
     });
+    this.playerService.players$
+    .pipe(takeUntil(this.destroy$))
+    .subscribe(players => {
+      this.currentPlayer = players[this.currentPlayerIndex] || null;
+    });
+  this.diceService.result$
+    .pipe(takeUntil(this.destroy$))
+    .subscribe(result => {
+      if (this.currentPlayer?.skipNextTurn === false) {
+        this.movePlayer(result);
+      }
+    });
   }
-  private isLoading = signal(true);
-  private hasError = signal(false);
-
-  ngAfterViewInit(): void {
-    console.log('🚀 Iniciando componente de juego');
-    
-    // PASO 1: Extraer nombres desde URL
-    const playerNames = this.extractPlayerNamesFromURL();
-    console.log('📝 Nombres extraídos de URL:', playerNames);
-    
-    if (playerNames.length > 0) {
-      console.log('⚙️ Creando jugadores desde URL...');
-      // PASO 2: Crear jugadores con nombres de URL
-      this.playerService.initializePlayers(playerNames);
-    } else {
-      console.warn('⚠️ No se encontraron nombres de jugadores en la URL');
-    }
-    
-    // PASO 3: Suscribirse a cambios de jugadores
-    this.playersSub = this.playerService.players$
+  ngAfterViewInit() {
+    // Una sola suscripción a queryParams
+    this.route.queryParams
       .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (players) => {
-          console.log('👥 Jugadores recibidos:', players.length);
-          this.players = players;
-          this.isLoading.set(false);
+      .subscribe(params => {
+        if (params['jugadores']) {
+          const nombresJugadores = Array.isArray(params['jugadores']) 
+            ? params['jugadores'] 
+            : [params['jugadores']];
           
-          // PASO 4: Inicializar Phaser cuando tengamos jugadores
-          if (players.length > 0 && !this.game) {
-            console.log('🎮 Inicializando Phaser con', players.length, 'jugadores');
-            this.initializePhaserGame();
-            this.setupEventListenersAfterInit();
-          }
-        },
-        error: (error) => {
-          console.error('❌ Error cargando jugadores:', error);
-          this.hasError.set(true);
-          this.isLoading.set(false);
+          this.playerService.initializePlayers(nombresJugadores);
+          console.log('Jugadores inicializados desde queryParams:', nombresJugadores);
         }
       });
+  
+    // Suscripción a players$ para inicializar Phaser
+    this.playersSub = this.playerService.players$
+      .pipe(
+        takeUntil(this.destroy$),
+        filter(players => players && players.length > 0) // Solo proceder si hay jugadores
+      )
+      .subscribe(players => {
+        console.log('Jugadores disponibles para Phaser:', players.length);
+        this.initializePhaserGame();
+      });
   }
-
-
+  
+  
   private extractPlayerNamesFromURL(): string[] {
     // Obtener parámetros de la URL actual
     const urlParams = new URLSearchParams(window.location.search);
@@ -149,11 +150,7 @@ export class GameComponent implements AfterViewInit, OnDestroy {
     }
     
     return [];
-    }
-
-
-
-
+  }
   // ======== NUEVO MÉTODO: CONFIGURAR EVENT LISTENERS DESPUÉS DE INICIALIZACIÓN ========
   private setupEventListenersAfterInit(): void {
     this.setupEventListeners();
@@ -169,7 +166,6 @@ export class GameComponent implements AfterViewInit, OnDestroy {
       }
     });
   }
-
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
@@ -178,8 +174,6 @@ export class GameComponent implements AfterViewInit, OnDestroy {
       this.game.destroy(true);
     }  
   }
-
-
   obtenerDatosSeguro(seguroEnum: string) {
     // Devuelve los datos según el enum
     switch (seguroEnum) {
@@ -191,7 +185,6 @@ export class GameComponent implements AfterViewInit, OnDestroy {
     }
     return null;
   }
-
   private initializePhaserGame(): void {
     // Verificar que tenemos jugadores antes de inicializar Phaser
     if (!this.players.length) {
@@ -218,7 +211,6 @@ export class GameComponent implements AfterViewInit, OnDestroy {
     };
     this.game = new Phaser.Game(config);
   }
-
   private registerPhaserServices(game: Phaser.Game): void {
     game.registry.set('diceService', this.diceService);
     game.registry.set('modalService', this.modalService);
@@ -244,7 +236,6 @@ export class GameComponent implements AfterViewInit, OnDestroy {
     
     });
   }
-
   private movePlayer(spaces: number): void {
     const newPosition = (this.currentPlayer.position + spaces) % 22;
     this.playerService.updatePlayerPosition(this.currentPlayer.id, newPosition);
@@ -253,23 +244,32 @@ export class GameComponent implements AfterViewInit, OnDestroy {
       newPosition
     });
   }
-
-private handlePlayerMovement(newPosition: number): void {
-  // Mueve la ficha del jugador actual
-  this.currentPlayer.position = newPosition;
-  this.casillasService.handleBoardPosition(newPosition, this.currentPlayer);
-  this.playerService.nextTurn();
-
-  // Obtener el siguiente jugador y validar
-  const next = this.playerService.currentPlayer;
-  if (!next) {
-    console.warn('No hay jugador actual disponible');  // Previene asignaciones a null
-    return;
+  private handlePlayerMovement(newPosition: number): void {
+    // Verificar que currentPlayer existe antes de usarlo
+    if (!this.currentPlayer) {
+      console.error('Error: No hay jugador actual definido');
+      return;
+    }
+  
+    // Actualizar posición en el backend y en el estado local
+    this.playerService.updatePlayerPosition(this.currentPlayer.id, newPosition);
+    
+    // Mover ficha en el tablero de Phaser
+    this.currentPlayer.position = newPosition;
+    this.casillasService.handleBoardPosition(newPosition, this.currentPlayer);
+    
+    // Pasar al siguiente turno
+    this.playerService.nextTurn();
+    
+    // Actualizar jugador actual en el componente
+    const nextPlayer = this.playerService.currentPlayer;
+    if (!nextPlayer) {
+      console.warn('No se encontró el siguiente jugador');
+      return;
+    }
+    this.currentPlayer = nextPlayer;
   }
-  this.currentPlayer = next;
-}
-
-
+  
   // ======== Métodos de validación y limpieza ========
   private validateGameParameters(): void {
     if (
@@ -299,31 +299,23 @@ export class BoardScene extends Phaser.Scene {
   private overlay!: Phaser.GameObjects.Rectangle;
   private errorSub!: Subscription;
   public errorMessage: string | null = null;
-
-
   // Configuración y estado del juego
   equipos = signal<boolean | null>(null);
   cantidadDeJugadores = 0;
   jugadores = signal<string[] | null>(null);
-
   // Fichas y posiciones de jugadores
   private tokens: Phaser.GameObjects.Image[] = [];
   private currentIndex: number[] = [];
   private playerCount = signal<number | null>(null);
-  private currentPlayer = 0;
+  private currentPlayerIndex = 0;
   private cellPositions: { x: number, y: number }[] = [];
   private isModalOpen = false;
   private modalQueue: (() => void)[] = [];
-
   constructor() {
     super({ key: 'BoardScene' });
   }
-
   // ======== Métodos de ciclo de vida Phaser ========
-
-  /**
-   * Inicializa servicios necesarios desde el registry de Phaser.
-   */
+  //Inicializa servicios necesarios desde el registry de Phaser.
   init(): void {
     this.diceService = this.game.registry.get('diceService');
     this.playerService = this.game.registry.get('playerService');
@@ -333,10 +325,7 @@ export class BoardScene extends Phaser.Scene {
     this.cantidadDeJugadores = this.game.registry.get('cantidadDeJugadores');
     this.equipos = this.game.registry.get('equipos');
   }
-
-  /**
-   * Precarga imágenes y recursos necesarios para el tablero y fichas.
-   */
+  //Precarga imágenes y recursos necesarios para el tablero y fichas.
   preload(): void {
     this.load.image('tablero', 'assets/images/tablero.png');
     this.load.image('ficha1', 'assets/fichas/JNaranja.png');
@@ -358,10 +347,7 @@ export class BoardScene extends Phaser.Scene {
     this.load.image('dado', 'assets/images/dado.png');
     
   }
-
-  /**
-   * Crea los elementos visuales del tablero y la interfaz de usuario.
-   */
+  //Crea los elementos visuales del tablero y la interfaz de usuario.
   create(): void {
     
     const cw = this.scale.width;
@@ -481,11 +467,7 @@ export class BoardScene extends Phaser.Scene {
   }
 
   // ======== Métodos de lógica principal ========
-
-  /**
-   * Lógica al pulsar el botón del dado: lanza el dado y gestiona la animación y el turno.
-   */
-
+  //Lógica al pulsar el botón del dado: lanza el dado y gestiona la animación y el turno.
   private drawPlayerCards(): void {
     const cw = this.scale.width;
     const ch = this.scale.height;
@@ -573,12 +555,10 @@ export class BoardScene extends Phaser.Scene {
       this.playerCardObjects.push(pagoText);
     });
   }
-
   private clearPlayerCards(): void {
     this.playerCardObjects.forEach(obj => obj.destroy());
     this.playerCardObjects = [];
   }
-  
   private onDicePressed() {
     
     this.diceBtn.disableInteractive();
@@ -621,7 +601,6 @@ export class BoardScene extends Phaser.Scene {
       }
     });
   }
-
   /**
    * Mueve la ficha del jugador actual el número de pasos indicado.
    * @param steps Número de casillas a mover
@@ -650,13 +629,12 @@ export class BoardScene extends Phaser.Scene {
         });
       });
     }
-    this.currentIndex[this.currentPlayer] = (from + steps) % total;
-    const newPosition = this.currentIndex[this.currentPlayer];
-    this.currentPlayer = (this.currentPlayer + 1) % this.cantidadDeJugadores;
+    this.currentIndex[this.currentPlayerIndex] = (from + steps) % total;
+    const newPosition = this.currentIndex[this.currentPlayerIndex];
+    this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.cantidadDeJugadores;
     this.game.events.emit('updatePosition', newPosition);
     onDone();
   }
-
   mostrarSeguroModal(player: Player, seguro: seguros){
     const scene = this; // referencia a la escena actual
     let flag1= false;
@@ -888,7 +866,6 @@ export class BoardScene extends Phaser.Scene {
       }
     };
   }
-
   async solicitarModalSeguro(player: Player, seguro: any): Promise<void> {
     if (this.isModalOpen) {
       await new Promise<void>(resolve => this.modalQueue.push(resolve));
@@ -896,63 +873,60 @@ export class BoardScene extends Phaser.Scene {
     this.isModalOpen = true;
     this.mostrarSeguroModal(player, seguro);
   }
+  private errorModalGroup?: Phaser.GameObjects.Group;
+  private showErrorModalPhaser(message: string, type: 'error' | 'info' = 'error'){
+    const bgColor = type === 'error' ? 0x2b2b2b : 0xc8c4c4;
+    const textColor = type === 'error' ? '#fff' : '#000';
+    if (this.errorModalGroup) return;
 
-private errorModalGroup?: Phaser.GameObjects.Group;
+    const width = this.scale.width;
+    const height = this.scale.height;
 
-private showErrorModalPhaser(message: string, type: 'error' | 'info' = 'error'){
-  const bgColor = type === 'error' ? 0x2b2b2b : 0xc8c4c4;
-  const textColor = type === 'error' ? '#fff' : '#000';
-  if (this.errorModalGroup) return;
+    // INICIALIZA EL GRUPO AQUÍ
+    this.errorModalGroup = this.add.group();
 
-  const width = this.scale.width;
-  const height = this.scale.height;
+    // 1. Capa interactiva transparente para bloquear clics debajo del error
+    const blocker = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.001)
+      .setOrigin(0.5)
+      .setInteractive()
+      .setDepth(19999);
+    this.errorModalGroup.add(blocker);
 
-  // INICIALIZA EL GRUPO AQUÍ
-  this.errorModalGroup = this.add.group();
+    // 2. Fondo del mensaje de error 
+    const bgHeight = 180;
+    const bg = this.add.rectangle(width / 2, height / 2, width * 0.5, bgHeight, bgColor)
+      .setOrigin(0.5)
+      .setDepth(20000);
+    this.errorModalGroup.add(bg);
 
-  // 1. Capa interactiva transparente para bloquear clics debajo del error
-  const blocker = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.001)
-    .setOrigin(0.5)
-    .setInteractive()
-    .setDepth(19999);
-  this.errorModalGroup.add(blocker);
+    // 3. Texto del mensaje de error
+    const text = this.add.text(width / 2, height / 2 - 30, message, {
+      font: '20px Arial',
+      color: textColor ,
+      align: 'center',
+      wordWrap: { width: width * 0.45 }
+    }).setOrigin(0.5)
+      .setDepth(20001);
+    this.errorModalGroup.add(text);
 
-  // 2. Fondo del mensaje de error 
-  const bgHeight = 180;
-  const bg = this.add.rectangle(width / 2, height / 2, width * 0.5, bgHeight, bgColor)
-    .setOrigin(0.5)
-    .setDepth(20000);
-  this.errorModalGroup.add(bg);
+    // 4. Botón "Aceptar" con padding y separado del borde inferior
+    const btn = this.add.text(width / 2, height / 2 + 50, 'Aceptar', {
+      font: '18px Arial',
+      color: '#000',
+      backgroundColor: '#fff',
+      align: 'center'
+    })
+      .setOrigin(0.5)
+      .setInteractive()
+      .setDepth(20002)
+      .setPadding({ left: 32, right: 32, top: 10, bottom: 10 });
+    this.errorModalGroup.add(btn);
 
-  // 3. Texto del mensaje de error
-  const text = this.add.text(width / 2, height / 2 - 30, message, {
-    font: '20px Arial',
-    color: textColor ,
-    align: 'center',
-    wordWrap: { width: width * 0.45 }
-  }).setOrigin(0.5)
-    .setDepth(20001);
-  this.errorModalGroup.add(text);
-
-  // 4. Botón "Aceptar" con padding y separado del borde inferior
-  const btn = this.add.text(width / 2, height / 2 + 50, 'Aceptar', {
-    font: '18px Arial',
-    color: '#000',
-    backgroundColor: '#fff',
-    align: 'center'
-  })
-    .setOrigin(0.5)
-    .setInteractive()
-    .setDepth(20002)
-    .setPadding({ left: 32, right: 32, top: 10, bottom: 10 });
-  this.errorModalGroup.add(btn);
-
-  btn.on('pointerdown', () => {
-    this.errorModalGroup?.clear(true, true); // Destruye todos los objetos del grupo
-    this.errorModalGroup = undefined;
-  });
-}
-
+    btn.on('pointerdown', () => {
+      this.errorModalGroup?.clear(true, true); // Destruye todos los objetos del grupo
+      this.errorModalGroup = undefined;
+    });
+  }
   // Funciones auxiliares para obtener nombre, precio e imagen
   obtenerNombreSeguro(seguroEnum: seguros) {
     switch (seguroEnum) {
@@ -967,7 +941,6 @@ private showErrorModalPhaser(message: string, type: 'error' | 'info' = 'error'){
       default: return 'Seguro desconocido';
     }
   }
-
   obtenerPrecioSeguro(seguroEnum: seguros) {
     switch (seguroEnum) {
       case seguros.SALUD: return 200;
@@ -981,10 +954,8 @@ private showErrorModalPhaser(message: string, type: 'error' | 'info' = 'error'){
       default: return 0;
     }
   }
-
   shutdown() {
     this.playersSub?.unsubscribe();
     this.errorSub?.unsubscribe();
   }
-
 }

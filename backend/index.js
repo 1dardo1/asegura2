@@ -75,23 +75,24 @@ app.post('/api/players', async (req, res) => {
 app.put('/api/players/:id', async (req, res) => {
   try {
     const playerId = parseInt(req.params.id);
-    const updatedPlayer = req.body;
-    
+    const updatedPlayer = { ...req.body };
+    // Elimina el campo _id si viene en el body
+    if (updatedPlayer._id) delete updatedPlayer._id;
+
     const result = await Player.findOneAndUpdate(
-      { id: playerId }, 
-      updatedPlayer, 
+      { id: playerId },
+      updatedPlayer,
       { new: true, runValidators: true }
     );
-    
     if (!result) {
       return res.status(404).json({ error: 'Jugador no encontrado' });
     }
-    
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 // Actualizar solo la posición de un jugador (optimizado para movimientos frecuentes)
 app.patch('/api/players/:id/position', async (req, res) => {

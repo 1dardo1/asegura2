@@ -12,8 +12,6 @@ export class PlayerService {
 
   // ======== Constructor ========
   constructor(private http: HttpClient) {
-    this.loadPlayersFromBackend();
-    // ELIMINADO: La suscripción automática a localStorage
   }
 
   // ======== Métodos de carga ========
@@ -113,9 +111,14 @@ export class PlayerService {
       const updatedPlayers = [...players];
       updatedPlayers[idx] = { ...updatedPlayer };
       this.playersSubject.next(updatedPlayers);
-
-      // Usar PUT para actualizar jugador completo
-      this.http.put(`/api/players/${updatedPlayer.id}`, updatedPlayer).subscribe({
+  
+      // Elimina _id antes de enviar al backend
+      const playerToSend = { ...updatedPlayer } as any;
+      if (playerToSend._id) {
+        delete playerToSend._id;
+      }
+  
+      this.http.put(`/api/players/${updatedPlayer.id}`, playerToSend).subscribe({
         error: (error) => {
           console.error('Error al actualizar jugador en MongoDB:', error);
           localStorage.setItem('players', JSON.stringify(updatedPlayers));
@@ -123,6 +126,7 @@ export class PlayerService {
       });
     }
   }
+  
 
   // ======== Métodos de turno ========
   nextTurn(): void {
