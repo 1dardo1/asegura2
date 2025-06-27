@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "cd frontend && ng build --prod && cd ../backend && node index.js",
+    "start": "node index.js",
+    "build-and-start": "cd ../frontend && ng build && ng cache clean  && cd ../backend && node index.js",
+    "dev": "node index.js",
+    "install-deps": "npm install mongoose",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -13,6 +16,10 @@
   "dependencies": {
     "body-parser": "^2.2.0",
     "express": "^5.1.0",
+<<<<<<< HEAD
     "mongoose": "^8.15.1"
+=======
+    "mongoose": "^8.16.0"
+>>>>>>> playersBD
   }
 }

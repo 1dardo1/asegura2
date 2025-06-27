@@ -5,36 +5,8 @@
     </svg></button>
     @switch (paso())
     {
+       
         @case(1)
-        {
-            <div class="dificultadJuego">
-                <div class="botonesDificultad">
-                    <button 
-                        (click)="botonSetDificultad(Dificultad.FACIL)" 
-                        class="botonDificultad" 
-                        [class.resaltado]="dificultadSelecionada() === 'FACIL'"
-                        id="dificultadFacil">
-                        Fácil
-                    </button>
-                    <button 
-                        (click)="botonSetDificultad(Dificultad.MEDIA)" 
-                        class="botonDificultad" 
-                        [class.resaltado]="dificultadSelecionada() === 'MEDIA'"
-                        id="dificultadMedia">
-                        Media
-                    </button>
-                    <button 
-                        (click)="botonSetDificultad(Dificultad.DIFICIL)" 
-                        class="botonDificultad"
-                        [class.resaltado]="dificultadSelecionada() === 'DIFICIL'" 
-                        id="dificultadDificil">
-                        Dificil
-                    </button>
-                </div>
-                <button (click)="siguienteDificultadSelecionada()" class="botonSiguiente">Siguiente</button>
-            </div>
-        }
-        @case(2)
         {
             <div class="modoJuego">
                 <div class="botonesModo">
@@ -56,7 +28,7 @@
                 <button (click)="siguienteModoSelecionado()" class="botonSiguiente">Siguiente</button>
             </div>
         }
-        @case(3)
+        @case(2)
         {
             <div class="cantidadJugadores">
                 
@@ -84,7 +56,7 @@
             </div>
             
         }
-        @case(4)
+        @case(3)
         {
             <div class="jugadores">
                 <form class="jugadoresInput">

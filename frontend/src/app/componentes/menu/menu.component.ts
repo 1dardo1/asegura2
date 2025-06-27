@@ -1,8 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 
-enum Dificultad{FACIL="FACIL", MEDIA="MEDIA", DIFICIL="DIFICIL"};
-
 @Component({
   selector: 'app-menu',
   imports: [],
@@ -14,13 +12,11 @@ export class MenuComponent {
   router = inject(Router);
   uttr : SpeechSynthesisUtterance;
 
-  Dificultad = Dificultad;
   paso = signal(1);
   numeros = signal([1,2,3,4,5,6,7,8]);
   numerosRecortados = signal<number[] | null>(null);//guarda un array de numeros igual de largo que 
                                                     // la cantidada de jugadores o equipos selecionado
 
-  dificultadSelecionada = signal<Dificultad|null>(null);
   modoEquiposSeleccionado = signal<boolean|null>(null);
   cantidadDeJugadores = signal<number|null>(null);
   jugadores = signal<string[] | null>(null);
@@ -37,6 +33,7 @@ export class MenuComponent {
     this.uttr = new SpeechSynthesisUtterance();
     this.uttr.lang = 'es-ES';
   }
+<<<<<<< HEAD
   botonSetDificultad(value : Dificultad)
   {
     this.dificultadSelecionada.set(value);
@@ -47,6 +44,12 @@ export class MenuComponent {
   botonIndividual() {
     this.modoEquiposSeleccionado.set(false);
     window.speechSynthesis.cancel();
+=======
+
+  botonIndividual() {
+    this.modoEquiposSeleccionado.set(false);
+    window.speechSynthesis.cancel(); 
+>>>>>>> playersBD
     this.uttr.text = "individual";
     window.speechSynthesis.speak(this.uttr);
   }
@@ -62,6 +65,7 @@ export class MenuComponent {
     this.uttr.text = value.toString();
     window.speechSynthesis.speak(this.uttr);
   }
+<<<<<<< HEAD
   siguienteDificultadSelecionada() {
     if (this.dificultadSelecionada() != null) {
     this.paso.update(value => value + 1);
@@ -75,6 +79,9 @@ export class MenuComponent {
       window.speechSynthesis.speak(this.uttr);
     }
   }
+=======
+  
+>>>>>>> playersBD
   siguienteModoSelecionado() {
     if (this.modoEquiposSeleccionado() != null) {
       this.paso.update(value => value + 1);
@@ -141,7 +148,7 @@ export class MenuComponent {
         this.jugadores.update((listaActual) => {
           return listaActual ? [...listaActual, ...nuevosJugadores] : nuevosJugadores;
         });
-          this.router.navigate(['juego'], { queryParams: { dificultad: this.dificultadSelecionada(), equipos: this.modoEquiposSeleccionado(), cantidadDeJugadores: this.cantidadJugadoresSeleccionada(), jugadores:this.jugadores()} }); 
+          this.router.navigate(['juego'], { queryParams: {equipos: this.modoEquiposSeleccionado(), cantidadDeJugadores: this.cantidadJugadoresSeleccionada(), jugadores:this.jugadores()} }); 
       }
     }
   }

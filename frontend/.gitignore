@@ -1,42 +1,39 @@
-# See https://docs.github.com/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
-
-# Compiled output
+# 👉 Archivos de salida / compilación
 /dist
 /tmp
 /out-tsc
 /bazel-out
+/.angular/cache
+/coverage
+/typings
+testem.log
 
-# Node
+# 👉 Dependencias (NO se deben subir)
 /node_modules
+node_modules/
+
+# 👉 Archivos de entorno y configuración local
+.env
+*.log
 npm-debug.log
 yarn-error.log
+/connect.lock
+/libpeerconnection.log
 
-# IDEs and editors
+# 👉 Configuración de IDEs
 .idea/
+.vscode/
 .project
 .classpath
 .c9/
 *.launch
 .settings/
 *.sublime-workspace
+.history/
 
-# Visual Studio Code
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-.history/*
-
-# Miscellaneous
-/.angular/cache
-.sass-cache/
-/connect.lock
-/coverage
-/libpeerconnection.log
-testem.log
-/typings
-
-# System files
+# 👉 Archivos de sistema
 .DS_Store
 Thumbs.db
+
+# 👉 Archivos Sass (opcional)
+.sass-cache/
